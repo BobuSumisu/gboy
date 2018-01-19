@@ -40,6 +40,10 @@ struct cpu {
     uint16_t pc;
     uint16_t sp;
     struct mmu *mmu;
+
+    int stop;
+    int halt;
+    int ime;
 };
 
 void        cpu_init(struct cpu *cpu, struct mmu *mmu);

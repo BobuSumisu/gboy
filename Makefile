@@ -23,4 +23,7 @@ test: CFLAGS += -g -DDEBUG -DTEST
 test: $(TARGET)
 	./$(TARGET)
 
-.PHONY: all clean test
+run: $(TARGET)
+	./$(TARGET)
+
+.PHONY: all clean test run
