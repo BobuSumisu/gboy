@@ -1,6 +1,6 @@
 TARGET	= gboy
 CC		= clang
-CFLAGS	= -std=c11 -Wall -Wextra -Wpedantic -Werror
+CFLAGS	= -g -DDEBUG -std=c11 -Wall -Wextra -Wpedantic -Werror
 LD		= clang
 LFLAGS	= -Wall -Wextra -Werror
 LIBS	=
@@ -19,11 +19,7 @@ src/%.o : src/%.c
 clean:
 	$(RM) $(TARGET) $(OBJECTS)
 
-test: CFLAGS += -g -DDEBUG -DTEST
 test: $(TARGET)
 	./$(TARGET)
 
-run: $(TARGET)
-	./$(TARGET)
-
-.PHONY: all clean test run
+.PHONY: all clean test

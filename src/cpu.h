@@ -8,6 +8,12 @@
 #define FLAG_H 0x20
 #define FLAG_C 0x10
 
+#define INT_VBLANK  0x01
+#define INT_LCDC    0x02
+#define INT_TIMER   0x04
+#define INT_SERIAL  0x08
+#define INT_INPUT   0x10
+
 struct cpu {
     union {
         struct {
@@ -39,14 +45,20 @@ struct cpu {
     };
     uint16_t pc;
     uint16_t sp;
-    struct mmu *mmu;
 
     int stop;
     int halt;
     int ime;
+
+    uint8_t reg_if;     /* 0xFF0F */
+    uint8_t reg_ie;     /* 0xFFFF */
+
+    struct mmu *mmu;
+    struct gpu *gpu;
 };
 
-void        cpu_init(struct cpu *cpu, struct mmu *mmu);
+struct cpu  *cpu_new(void);
+void        cpu_init(struct cpu *cpu);
 void        cpu_free(struct cpu *cpu);
 int         cpu_step(struct cpu *cpu);
 void        cpu_run(struct cpu *cpu);

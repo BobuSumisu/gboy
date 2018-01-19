@@ -4,8 +4,16 @@
 #include "cpu.h"
 #include "mmu.h"
 #include "alu.h"
+#include "instr_info.h"
+#include "gpu.h"
 
 /*** Private ***/
+
+#if 1
+#define DEBUG_INSTR(...) printf(__VA_ARGS__)
+#else
+#define DEBUG_INSTR(...)
+#endif
 
 static uint8_t cpu_fb(struct cpu *cpu) {
     return mmu_rb(cpu->mmu, cpu->pc++);
@@ -26,6 +34,20 @@ static uint16_t cpu_pop(struct cpu *cpu) {
     uint16_t w = mmu_rw(cpu->mmu, cpu->sp);
     cpu->sp += 2;
     return w;
+}
+
+static void cpu_int_handler(struct cpu *cpu) {
+    if(cpu->ime && cpu->reg_ie && cpu->reg_if) {
+        for(int i = 4; i >= 0; i--) {
+            int flag = (1 << i);
+            if((cpu->reg_ie & flag) && (cpu->reg_if & flag)) {
+                cpu->ime = 0;
+                cpu->reg_if &= ~flag;
+                cpu_push(cpu, cpu->pc);
+                cpu->pc = (uint16_t)(0x0040 + (i * 0x08));
+            }
+        }
+    }
 }
 
 static int cpu_jr_if(struct cpu *cpu, int cond) {
@@ -70,6 +92,8 @@ static int cpu_prefix_step(struct cpu *cpu) {
     uint8_t n = (opcode >> 3) & 0x07;
     uint8_t r = (opcode >> 0) & 0x07;
     uint8_t x, new_x;
+
+    DEBUG_INSTR(" %s", INSTR_INFOS_PREFIX[opcode].desc);
 
     switch(r) {
         case 0: x = cpu->b; break;
@@ -120,17 +144,40 @@ static int cpu_prefix_step(struct cpu *cpu) {
 
 /*** Public ***/
 
-void cpu_init(struct cpu *cpu, struct mmu *mmu) {
+struct cpu *cpu_new() {
+    struct cpu *cpu = malloc(sizeof(struct cpu));
+    cpu_init(cpu);
+    return cpu;
+}
+
+void cpu_init(struct cpu *cpu) {
     memset(cpu, 0, sizeof(struct cpu));
-    cpu->mmu = mmu;
+    cpu->gpu = gpu_new(cpu);
+    cpu->mmu = mmu_new(cpu, cpu->gpu);
 }
 
 void cpu_free(struct cpu *cpu) {
-    (void)cpu;
+    mmu_free(cpu->mmu);
+    gpu_free(cpu->gpu);
+    free(cpu);
 }
 
 int cpu_step(struct cpu *cpu) {
     uint8_t opcode = cpu_fb(cpu);
+    const struct instr_info *info = &INSTR_INFOS[opcode];
+    switch(info->size) {
+        case 1:
+            DEBUG_INSTR("\n%04X: 0x%02X    %s", cpu->pc - 1, opcode, info->desc);
+            break;
+        case 2:
+            DEBUG_INSTR("\n%04X: 0x%02X    %s (0x%02X)", cpu->pc - 1, opcode, info->desc,
+                mmu_rb(cpu->mmu, cpu->pc));
+            break;
+        case 3:
+            DEBUG_INSTR("\n%04X: 0x%02X    %s (0x%04X)", cpu->pc - 1, opcode, info->desc,
+                mmu_rw(cpu->mmu, cpu->pc));
+            break;
+    }
 
     switch(opcode) {
 
@@ -279,6 +326,9 @@ int cpu_step(struct cpu *cpu) {
 
         case 0xE2: mmu_wb(cpu->mmu, 0xFF00 + cpu->c, cpu->a); return 2;
         case 0xF2: cpu->a = mmu_rb(cpu->mmu, 0xFF00 + cpu->c); return 2;
+
+        case 0xEA: mmu_wb(cpu->mmu, cpu_fw(cpu), cpu->a); return 4;
+        case 0xFA: cpu->a = mmu_rb(cpu->mmu, cpu_fw(cpu)); return 4;
 
         /* 16-Bit Move Instructions */
 
@@ -455,10 +505,8 @@ void cpu_run(struct cpu *cpu) {
 
     while(1) {
         cycles = cpu_step(cpu);
-        if(cycles == 0) {
-            fprintf(stderr, "cpu_step returned 0 cycles\n");
-            break;
-        }
+        gpu_update(cpu->gpu, cycles);
+        cpu_int_handler(cpu);
     }
 }
 

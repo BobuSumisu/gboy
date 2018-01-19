@@ -1,5 +1,8 @@
+#include <stdlib.h>
 #include <string.h>
 #include "mmu.h"
+
+/*** Private ***/
 
 static const uint8_t boot[] = {
     0x31, 0xfe, 0xff, 0xaf, 0x21, 0xff, 0x9f, 0x32, 0xcb, 0x7c, 0x20, 0xfb, 0x21, 0x26, 0xff, 0x0e,
@@ -20,12 +23,30 @@ static const uint8_t boot[] = {
     0xf5, 0x06, 0x19, 0x78, 0x86, 0x23, 0x05, 0x20, 0xfb, 0x86, 0x20, 0xfe, 0x3e, 0x01, 0xe0, 0x50
 };
 
-void mmu_init(struct mmu *mmu) {
+static void mmu_dma_transfer(struct mmu *mmu) {
+    uint16_t addr = (uint16_t)(mmu->gpu->reg_dma << 8);
+    for(uint16_t i = 0; i < 0xA0; i++) {
+        mmu->gpu->oam[i] = mmu_rb(mmu, addr + i);
+    }
+}
+
+
+/*** Public ***/
+
+struct mmu *mmu_new(struct cpu *cpu, struct gpu *gpu) {
+    struct mmu *mmu = malloc(sizeof(struct mmu));
+    mmu_init(mmu, cpu, gpu);
+    return mmu;
+}
+
+void mmu_init(struct mmu *mmu, struct cpu *cpu, struct gpu *gpu) {
     memset(mmu, 0, sizeof(struct mmu));
+    mmu->cpu = cpu;
+    mmu->gpu = gpu;
 }
 
 void mmu_free(struct mmu *mmu) {
-    (void)mmu;
+    free(mmu);
 }
 
 uint8_t mmu_rb(const struct mmu *mmu, const uint16_t addr) {
@@ -49,7 +70,7 @@ uint8_t mmu_rb(const struct mmu *mmu, const uint16_t addr) {
         case 0x8000:
         case 0x9000:
             /* VRAM */
-            return mmu->vram[addr & 0x1FFF];
+            return mmu->gpu->vram[addr & 0x1FFF];
         case 0xA000:
         case 0xB000:
             /* RAM #1 */
@@ -62,22 +83,40 @@ uint8_t mmu_rb(const struct mmu *mmu, const uint16_t addr) {
             /* RAM #0 shadow */
             return mmu->ram0[addr & 0x1FFF];
         case 0xF000:
-            if(addr < 0xFE00) {
+            if(addr >= 0xF000 && addr < 0xFE00) {
                 /* RAM #0 shadow */
                 return mmu->ram0[addr & 0x1FFF];
-            } else if(addr < 0xFEA0) {
+            } else if(addr >= 0xFE00 && addr < 0xFEA0) {
                 /* OAM */
-                return mmu->oam[addr & 0xFF];
-            } else if(addr < 0xFF00) {
+                return mmu->gpu->oam[addr & 0xFF];
+            } else if(addr >= 0xFEA0 && addr < 0xFF00) {
                 /* Unusable */
                 return 0;
-            } else if(addr < 0xFF80) {
-                return mmu->ports[addr & 0x7C];
-            } else if(addr < 0xFFFF) {
-                return mmu->zram[addr & 0x7C];
-            } else {
+            } else if(addr >= 0xFF00 && addr < 0xFF80) {
+                /* I/O ports */
+                switch(addr) {
+                    case 0xFF0F: return mmu->cpu->reg_if;
+                    case 0xFF40: return mmu->gpu->reg_lcdc;
+                    case 0xFF41: return mmu->gpu->reg_stat;
+                    case 0xFF42: return mmu->gpu->reg_scy;
+                    case 0xFF43: return mmu->gpu->reg_scx;
+                    case 0xFF44: return mmu->gpu->reg_ly;
+                    case 0xFF45: return mmu->gpu->reg_lyc;
+                    case 0xFF46: return mmu->gpu->reg_dma;
+                    case 0xFF47: return mmu->gpu->reg_bgp;
+                    case 0xFF48: return mmu->gpu->reg_obp0;
+                    case 0xFF49: return mmu->gpu->reg_obp1;
+                    case 0xFF4A: return mmu->gpu->reg_wy;
+                    case 0xFF4B: return mmu->gpu->reg_wx;
+                    case 0xFF50: return mmu->reg_boot;
+                }
+                return mmu->ports[addr & 0x7F];
+            } else if(addr >= 0xFF80 && addr < 0xFFFF) {
+                /* Zero RAM */
+                return mmu->zram[addr & 0x7F];
+            } else if(addr == 0xFFFF) {
                 /* IE register. */
-                return 0;
+                return mmu->cpu->reg_ie;
             }
     }
     return 0;
@@ -106,7 +145,7 @@ void mmu_wb(struct mmu *mmu, const uint16_t addr, const uint8_t b) {
         case 0x8000:
         case 0x9000:
             /* VRAM */
-            mmu->vram[addr & 0x1FFF] = b;
+            mmu->gpu->vram[addr & 0x1FFF] = b;
             return;
         case 0xA000:
         case 0xB000:
@@ -123,25 +162,47 @@ void mmu_wb(struct mmu *mmu, const uint16_t addr, const uint8_t b) {
             mmu->ram0[addr & 0x1FFF] = b;
             return;
         case 0xF000:
-            if(addr < 0xFE00) {
+            if(addr >= 0xF000 && addr < 0xFE00) {
                 /* RAM #0 shadow */
                 mmu->ram0[addr & 0x1FFF] = b;
                 return;
-            } else if(addr < 0xFEA0) {
+            } else if(addr >= 0xFE00 && addr < 0xFEA0) {
                 /* OAM */
-                mmu->oam[addr & 0xFF] = b;
+                mmu->gpu->oam[addr & 0xFF] = b;
                 return;
-            } else if(addr < 0xFF00) {
+            } else if(addr >= 0xFEA0 && addr < 0xFF00) {
                 /* Unusable */
                 return;
-            } else if(addr < 0xFF80) {
-                mmu->ports[addr & 0x7C] = b;
+            } else if(addr >= 0xFF00 && addr < 0xFF80) {
+                /* I/O ports */
+                switch(addr) {
+                    case 0xFF0F: mmu->cpu->reg_if = b; return;
+                    case 0xFF40: mmu->gpu->reg_lcdc = b; return;
+                    case 0xFF41: mmu->gpu->reg_stat = b; return;
+                    case 0xFF42: mmu->gpu->reg_scy = b; return;
+                    case 0xFF43: mmu->gpu->reg_scx = b; return;
+                    case 0xFF44: mmu->gpu->reg_ly = b; return;
+                    case 0xFF45: mmu->gpu->reg_lyc = b; return;
+                    case 0xFF46:
+                        mmu->gpu->reg_dma = b;
+                        mmu_dma_transfer(mmu);
+                        return;
+                    case 0xFF47: mmu->gpu->reg_bgp = b; return;
+                    case 0xFF48: mmu->gpu->reg_obp0 = b; return;
+                    case 0xFF49: mmu->gpu->reg_obp1 = b; return;
+                    case 0xFF4A: mmu->gpu->reg_wy = b; return;
+                    case 0xFF4B: mmu->gpu->reg_wx = b; return;
+                    case 0xFF50: mmu->reg_boot = b; return;
+                }
+                mmu->ports[addr & 0x7F] = b;
                 return;
-            } else if(addr < 0xFFFF) {
-                mmu->zram[addr & 0x7C] = b;
+            } else if(addr >= 0xFF80 && addr < 0xFFFF) {
+                /* Zero RAM */
+                mmu->zram[addr & 0x7F] = b;
                 return;
-            } else {
+            } else if(addr == 0xFFFF) {
                 /* IE register. */
+                mmu->cpu->reg_ie = b;
                 return;
             }
     }
@@ -152,6 +213,6 @@ uint16_t mmu_rw(const struct mmu *mmu, const uint16_t addr) {
 }
 
 void mmu_ww(struct mmu *mmu, const uint16_t addr, const uint16_t w) {
-    mmu_wb(mmu, addr, (w >> 0) & 0x0F);
-    mmu_wb(mmu, addr, (w >> 8) & 0x0F);
+    mmu_wb(mmu, addr, (uint8_t)w);
+    mmu_wb(mmu, (addr + 1), (uint8_t)(w >> 8));
 }
