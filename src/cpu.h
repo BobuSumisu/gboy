@@ -1,3 +1,14 @@
+/*
+ *  cpu.h
+ *  =====
+ *
+ *  cpu emulates the core of the Sharp LR35902 CPU.
+ *
+ *  This means that the cpu holds the registers, and emulates the
+ *  fetch-decode-execute cycle.
+ *
+ *  The cpu also handles interrupts.
+ */
 #ifndef GBOY_CPU_H
 #define GBOY_CPU_H
 
@@ -54,15 +65,18 @@ struct cpu {
     uint8_t reg_ie;     /* 0xFFFF */
 
     struct mmu *mmu;
-    struct gpu *gpu;
 };
 
-struct cpu  *cpu_new(void);
-void        cpu_init(struct cpu *cpu);
-void        cpu_free(struct cpu *cpu);
+void        cpu_init(struct cpu *cpu, struct mmu *mmu);
+void        cpu_cleanup(struct cpu *cpu);
 int         cpu_step(struct cpu *cpu);
-void        cpu_run(struct cpu *cpu);
 uint8_t     cpu_flag(struct cpu *cpu, uint8_t flag);
 void        cpu_set_flag(struct cpu *cpu, uint8_t flag, int cond);
+uint8_t     cpu_fb(struct cpu *cpu);
+uint16_t    cpu_fw(struct cpu *cpu);
+void        cpu_push(struct cpu *cpu, uint16_t w);
+uint16_t    cpu_pop(struct cpu *cpu);
+
+void        cpu_debug(struct cpu *cpu);
 
 #endif

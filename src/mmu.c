@@ -1,6 +1,10 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include "mmu.h"
+#include "cpu.h"
+#include "gpu.h"
+#include "timer.h"
 
 /*** Private ***/
 
@@ -30,181 +34,119 @@ static void mmu_dma_transfer(struct mmu *mmu) {
     }
 }
 
-
 /*** Public ***/
 
-struct mmu *mmu_new(struct cpu *cpu, struct gpu *gpu) {
-    struct mmu *mmu = malloc(sizeof(struct mmu));
-    mmu_init(mmu, cpu, gpu);
-    return mmu;
-}
-
-void mmu_init(struct mmu *mmu, struct cpu *cpu, struct gpu *gpu) {
+void mmu_init(struct mmu *mmu, struct cpu *cpu, struct gpu *gpu, struct timer *timer) {
     memset(mmu, 0, sizeof(struct mmu));
     mmu->cpu = cpu;
     mmu->gpu = gpu;
+    mmu->timer = timer;
 }
 
-void mmu_free(struct mmu *mmu) {
-    free(mmu);
+void mmu_cleanup(struct mmu *mmu) {
+    (void)mmu;
 }
 
 uint8_t mmu_rb(const struct mmu *mmu, const uint16_t addr) {
-    switch(addr & 0xF000) {
-        case 0x0000:
-            /* Possibly boot ROM. */
-            if(addr < 0x100 && mmu->reg_boot == 0) {
-                return boot[addr];
-            }
-        case 0x1000:
-        case 0x2000:
-        case 0x3000:
-            /* ROM #0 */
-            return mmu->rom0[addr & 0x3FFF];
-        case 0x4000:
-        case 0x5000:
-        case 0x6000:
-        case 0x7000:
-            /* ROM #1 */
-            return mmu->rom1[addr & 0x3FFF];
-        case 0x8000:
-        case 0x9000:
-            /* VRAM */
-            return mmu->gpu->vram[addr & 0x1FFF];
-        case 0xA000:
-        case 0xB000:
-            /* RAM #1 */
-            return mmu->ram1[addr & 0x1FFF];
-        case 0xC000:
-        case 0xD000:
-            /* RAM #0 */
-            return mmu->ram0[addr & 0x1FFF];
-        case 0xE000:
-            /* RAM #0 shadow */
-            return mmu->ram0[addr & 0x1FFF];
-        case 0xF000:
-            if(addr >= 0xF000 && addr < 0xFE00) {
-                /* RAM #0 shadow */
-                return mmu->ram0[addr & 0x1FFF];
-            } else if(addr >= 0xFE00 && addr < 0xFEA0) {
-                /* OAM */
-                return mmu->gpu->oam[addr & 0xFF];
-            } else if(addr >= 0xFEA0 && addr < 0xFF00) {
-                /* Unusable */
-                return 0;
-            } else if(addr >= 0xFF00 && addr < 0xFF80) {
-                /* I/O ports */
-                switch(addr) {
-                    case 0xFF0F: return mmu->cpu->reg_if;
-                    case 0xFF40: return mmu->gpu->reg_lcdc;
-                    case 0xFF41: return mmu->gpu->reg_stat;
-                    case 0xFF42: return mmu->gpu->reg_scy;
-                    case 0xFF43: return mmu->gpu->reg_scx;
-                    case 0xFF44: return mmu->gpu->reg_ly;
-                    case 0xFF45: return mmu->gpu->reg_lyc;
-                    case 0xFF46: return mmu->gpu->reg_dma;
-                    case 0xFF47: return mmu->gpu->reg_bgp;
-                    case 0xFF48: return mmu->gpu->reg_obp0;
-                    case 0xFF49: return mmu->gpu->reg_obp1;
-                    case 0xFF4A: return mmu->gpu->reg_wy;
-                    case 0xFF4B: return mmu->gpu->reg_wx;
-                    case 0xFF50: return mmu->reg_boot;
-                }
+    if(addr < 0x100 && !mmu->reg_boot) {
+        return boot[addr];
+    } else if(addr >= 0x0000 && addr < 0x4000) {
+        return mmu->rom0[addr & 0x3FFF];
+    } else if(addr >= 0x4000 && addr < 0x8000) {
+        return mmu->rom1[addr & 0x3FFF];
+    } else if(addr >= 0x8000 && addr < 0xA000) {
+        return mmu->gpu->vram[addr & 0x1FFF];
+    } else if(addr >= 0xA000 && addr < 0xC000) {
+        return mmu->ram1[addr & 0x1FFF];
+    } else if(addr >= 0xC000 && addr < 0xE000) {
+        return mmu->ram0[addr & 0x1FFF];
+    } else if(addr >= 0xE000 && addr < 0xFE00) {
+        return mmu->ram0[addr & 0x1FFF];
+    } else if(addr >= 0xFE00 && addr < 0xFEA0) {
+        return mmu->gpu->oam[addr & 0xFF];
+    } else if(addr >= 0xFEA0 && addr < 0xFF00) {
+        return 0;
+    } else if(addr >= 0xFF00 && addr < 0xFF80) {
+        switch(addr) {
+            case 0xFF04: return mmu->timer->reg_div;
+            case 0xFF05: return mmu->timer->reg_tima;
+            case 0xFF06: return mmu->timer->reg_tma;
+            case 0xFF07: return mmu->timer->reg_tac;
+            case 0xFF0F: return mmu->cpu->reg_if;
+            case 0xFF40: return mmu->gpu->reg_lcdc;
+            case 0xFF41: return mmu->gpu->reg_stat;
+            case 0xFF42: return mmu->gpu->reg_scy;
+            case 0xFF43: return mmu->gpu->reg_scx;
+            case 0xFF44: return mmu->gpu->reg_ly;
+            case 0xFF45: return mmu->gpu->reg_lyc;
+            case 0xFF46: return mmu->gpu->reg_dma;
+            case 0xFF47: return mmu->gpu->reg_bgp;
+            case 0xFF48: return mmu->gpu->reg_obp0;
+            case 0xFF49: return mmu->gpu->reg_obp1;
+            case 0xFF4A: return mmu->gpu->reg_wy;
+            case 0xFF4B: return mmu->gpu->reg_wx;
+            case 0xFF50: return mmu->reg_boot;
+            default:
                 return mmu->ports[addr & 0x7F];
-            } else if(addr >= 0xFF80 && addr < 0xFFFF) {
-                /* Zero RAM */
-                return mmu->zram[addr & 0x7F];
-            } else if(addr == 0xFFFF) {
-                /* IE register. */
-                return mmu->cpu->reg_ie;
-            }
+        }
+    } else if(addr >= 0xFF80 && addr < 0xFFFF) {
+        return mmu->zram[addr & 0x7F];
+    } else if(addr == 0xFFFF) {
+        return mmu->cpu->reg_ie;
+    } else {
+        return 0;
     }
-    return 0;
 }
 
 void mmu_wb(struct mmu *mmu, const uint16_t addr, const uint8_t b) {
-    switch(addr & 0xF000) {
-        case 0x0000:
-            /* Possibly boot ROM. */
-            if(addr < 0x100 && mmu->reg_boot) {
-                return;
-            }
-        case 0x1000:
-        case 0x2000:
-        case 0x3000:
-            /* ROM #0 */
-            mmu->rom0[addr & 0x3FFF] = b;
-            return;
-        case 0x4000:
-        case 0x5000:
-        case 0x6000:
-        case 0x7000:
-            /* ROM #1 */
-            mmu->rom1[addr & 0x3FFF] = b;
-            return;
-        case 0x8000:
-        case 0x9000:
-            /* VRAM */
-            mmu->gpu->vram[addr & 0x1FFF] = b;
-            return;
-        case 0xA000:
-        case 0xB000:
-            /* RAM #1 */
-            mmu->ram1[addr & 0x1FFF] = b;
-            return;
-        case 0xC000:
-        case 0xD000:
-            /* RAM #0 */
-            mmu->ram0[addr & 0x1FFF] = b;
-            return;
-        case 0xE000:
-            /* RAM #0 shadow */
-            mmu->ram0[addr & 0x1FFF] = b;
-            return;
-        case 0xF000:
-            if(addr >= 0xF000 && addr < 0xFE00) {
-                /* RAM #0 shadow */
-                mmu->ram0[addr & 0x1FFF] = b;
-                return;
-            } else if(addr >= 0xFE00 && addr < 0xFEA0) {
-                /* OAM */
-                mmu->gpu->oam[addr & 0xFF] = b;
-                return;
-            } else if(addr >= 0xFEA0 && addr < 0xFF00) {
-                /* Unusable */
-                return;
-            } else if(addr >= 0xFF00 && addr < 0xFF80) {
-                /* I/O ports */
-                switch(addr) {
-                    case 0xFF0F: mmu->cpu->reg_if = b; return;
-                    case 0xFF40: mmu->gpu->reg_lcdc = b; return;
-                    case 0xFF41: mmu->gpu->reg_stat = b; return;
-                    case 0xFF42: mmu->gpu->reg_scy = b; return;
-                    case 0xFF43: mmu->gpu->reg_scx = b; return;
-                    case 0xFF44: mmu->gpu->reg_ly = b; return;
-                    case 0xFF45: mmu->gpu->reg_lyc = b; return;
-                    case 0xFF46:
-                        mmu->gpu->reg_dma = b;
-                        mmu_dma_transfer(mmu);
-                        return;
-                    case 0xFF47: mmu->gpu->reg_bgp = b; return;
-                    case 0xFF48: mmu->gpu->reg_obp0 = b; return;
-                    case 0xFF49: mmu->gpu->reg_obp1 = b; return;
-                    case 0xFF4A: mmu->gpu->reg_wy = b; return;
-                    case 0xFF4B: mmu->gpu->reg_wx = b; return;
-                    case 0xFF50: mmu->reg_boot = b; return;
-                }
+    if(addr < 0x100 && !mmu->reg_boot) {
+        /* boot ROM */
+        fprintf(stderr, "write to boot rom!\n");
+        exit(1);
+    } else if(addr >= 0x0000 && addr < 0x4000) {
+        mmu->rom0[addr & 0x3FFF] = b;
+    } else if(addr >= 0x4000 && addr < 0x8000) {
+        mmu->rom1[addr & 0x3FFF] = b;
+    } else if(addr >= 0x8000 && addr < 0xA000) {
+        mmu->gpu->vram[addr & 0x1FFF] = b;
+    } else if(addr >= 0xA000 && addr < 0xC000) {
+        mmu->ram1[addr & 0x1FFF] = b;
+    } else if(addr >= 0xC000 && addr < 0xE000) {
+        mmu->ram0[addr & 0x1FFF] = b;
+    } else if(addr >= 0xE000 && addr < 0xFE00) {
+        mmu->ram0[addr & 0x1FFF] = b;
+    } else if(addr >= 0xFE00 && addr < 0xFEA0) {
+        mmu->gpu->oam[addr & 0xFF] = b;
+    } else if(addr >= 0xFEA0 && addr < 0xFF00) {
+        /* unusable */
+    } else if(addr >= 0xFF00 && addr < 0xFF80) {
+        switch(addr) {
+            case 0xFF04: mmu->timer->reg_div = 0; break;
+            case 0xFF05: mmu->timer->reg_tima = b; break;
+            case 0xFF06: mmu->timer->reg_tma = b; break;
+            case 0xFF07: mmu->timer->reg_tac = b; break;
+            case 0xFF0F: mmu->cpu->reg_if = b; break;
+            case 0xFF40: mmu->gpu->reg_lcdc = b; break;
+            case 0xFF41: mmu->gpu->reg_stat = b; break;
+            case 0xFF42: mmu->gpu->reg_scy = b; break;
+            case 0xFF43: mmu->gpu->reg_scx = b; break;
+            case 0xFF44: mmu->gpu->reg_ly = 0; break;
+            case 0xFF45: mmu->gpu->reg_lyc = b; break;
+            case 0xFF46: mmu->gpu->reg_dma = b; mmu_dma_transfer(mmu); break;
+            case 0xFF47: mmu->gpu->reg_bgp = b; break;
+            case 0xFF48: mmu->gpu->reg_obp0 = b; break;
+            case 0xFF49: mmu->gpu->reg_obp1 = b; break;
+            case 0xFF4A: mmu->gpu->reg_wy = b; break;
+            case 0xFF4B: mmu->gpu->reg_wx = b; break;
+            case 0xFF50: mmu->reg_boot = b; break;
+            default:
                 mmu->ports[addr & 0x7F] = b;
-                return;
-            } else if(addr >= 0xFF80 && addr < 0xFFFF) {
-                /* Zero RAM */
-                mmu->zram[addr & 0x7F] = b;
-                return;
-            } else if(addr == 0xFFFF) {
-                /* IE register. */
-                mmu->cpu->reg_ie = b;
-                return;
-            }
+                break;
+        }
+    } else if(addr >= 0xFF80 && addr < 0xFFFF) {
+        mmu->zram[addr & 0x7F] = b;
+    } else if(addr == 0xFFFF) {
+        mmu->cpu->reg_ie = b;
     }
 }
 
@@ -215,4 +157,25 @@ uint16_t mmu_rw(const struct mmu *mmu, const uint16_t addr) {
 void mmu_ww(struct mmu *mmu, const uint16_t addr, const uint16_t w) {
     mmu_wb(mmu, addr, (uint8_t)w);
     mmu_wb(mmu, (addr + 1), (uint8_t)(w >> 8));
+}
+
+int mmu_load_rom(struct mmu *mmu, const char *path) {
+    uint8_t buf[0x8000];
+    FILE *fp = fopen(path, "rb");
+    if(fp == NULL) {
+        return -1;
+    }
+    if(fread(buf, sizeof(buf), 1, fp) != 1) {
+        fclose(fp);
+        return -1;
+    }
+    fclose(fp);
+
+    mmu->reg_boot = 1;
+    for(uint16_t i = 0; i < sizeof(buf); i++) {
+        mmu_wb(mmu, i, buf[i]);
+    }
+    mmu->reg_boot = 0;
+
+    return 0;
 }

@@ -1,24 +1,32 @@
+/*
+ *  gpu.h
+ *  =====
+ *
+ *  Emulate the Game Boy LCD controller.
+ *
+ *  A lot of confusing stuff here. :)
+ *
+ */
 #ifndef GBOY_GPU_H
 #define GBOY_GPU_H
 
 #include <inttypes.h>
-#include "cpu.h"
 
-#define LCDC_BG_ON          0x01
-#define LCDC_OBJ_ON         0x02
-#define LCDC_OBJ_BLOCK      0x04
-#define LCDC_BG_CODE        0x08
-#define LCDC_BG_CHAR        0x10
-#define LCDC_WIN_ON         0x20
-#define LCDC_WIN_CODE       0x40
 #define LCDC_ON             0x80
+#define LCDC_WIN_MAP        0x40
+#define LCDC_WIN_ON         0x20
+#define LCDC_BG_DATA        0x10
+#define LCDC_BG_MAP         0x08
+#define LCDC_OBJ_SIZE       0x04
+#define LCDC_OBJ_ON         0x02
+#define LCDC_BG_ON          0x01
 
-#define STAT_MODE           0x03
-#define STAT_MATCH          0x04 /* Write to MATCH set it to 0 */
-#define STAT_INT_HBLANK     0x08
-#define STAT_INT_VBLANK     0x10
-#define STAT_INT_OAM        0x20
 #define STAT_INT_MATCH      0x40
+#define STAT_INT_OAM        0x20
+#define STAT_INT_VBLANK     0x10
+#define STAT_INT_HBLANK     0x08
+#define STAT_MATCH          0x04 /* Write to MATCH set it to 0 */
+#define STAT_MODE           0x03
 
 enum gpu_mode {
     GPU_MODE_HBLANK,        /* Mode 00 - CPU has access to VRAM */
@@ -47,11 +55,12 @@ struct gpu {
     int clock;
 
     struct cpu *cpu;
+    struct screen *screen;
 };
 
-struct gpu  *gpu_new(struct cpu *cpu);
-void        gpu_init(struct gpu *gpu, struct cpu *cpu);
-void        gpu_free(struct gpu *gpu);
+void        gpu_init(struct gpu *gpu, struct cpu *cpu, struct screen *screen);
+void        gpu_cleanup(struct gpu *gpu);
 void        gpu_update(struct gpu *gpu, int cycles);
+void        gpu_debug_tiles(struct gpu *gpu);
 
 #endif

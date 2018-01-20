@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "alu.h"
 
 uint16_t alu_add_u16_i8(struct cpu *cpu, const uint16_t a, const int8_t b) {
@@ -133,7 +134,7 @@ void alu_ccf(struct cpu *cpu) {
 }
 
 void alu_bit(struct cpu *cpu, const uint8_t a, const uint8_t n) {
-    cpu_set_flag(cpu, FLAG_Z, (a & (1 << n)) == 0);
+    cpu_set_flag(cpu, FLAG_Z, !((a >> n) & 1));
     cpu_set_flag(cpu, FLAG_N, 0);
     cpu_set_flag(cpu, FLAG_H, 1);
 }
@@ -149,42 +150,38 @@ uint8_t alu_set(struct cpu *cpu, const uint8_t a, const uint8_t n) {
 }
 
 uint8_t alu_rlc(struct cpu *cpu, const uint8_t a) {
-    uint8_t c = a >> 7;
-    uint8_t r = (uint8_t)(a << 1) | c;
+    uint8_t r = (uint8_t)((a << 1) | (a & 0x1));
     cpu_set_flag(cpu, FLAG_Z, r == 0);
     cpu_set_flag(cpu, FLAG_N, 0);
     cpu_set_flag(cpu, FLAG_H, 0);
-    cpu_set_flag(cpu, FLAG_C, c);
+    cpu_set_flag(cpu, FLAG_C, (a & 0x80) == 0x80);
     return r;
 }
 
 uint8_t alu_rrc(struct cpu *cpu, const uint8_t a) {
-    uint8_t c = a & 0x1;
-    uint8_t r = (uint8_t)((c << 7) | (a >> 1));
+    uint8_t r = (uint8_t)((a << 7) | (a >> 1));
     cpu_set_flag(cpu, FLAG_Z, r == 0);
     cpu_set_flag(cpu, FLAG_N, 0);
     cpu_set_flag(cpu, FLAG_H, 0);
-    cpu_set_flag(cpu, FLAG_C, c);
+    cpu_set_flag(cpu, FLAG_C, (a & 0x01) == 0x01);
     return r;
 }
 
 uint8_t alu_rl(struct cpu *cpu, const uint8_t a) {
-    uint8_t c = cpu_flag(cpu, FLAG_C);
-    uint8_t r = (uint8_t)(a << 1) | c;
+    uint8_t r = (uint8_t)(a << 1) | cpu_flag(cpu, FLAG_C);
     cpu_set_flag(cpu, FLAG_Z, r == 0);
     cpu_set_flag(cpu, FLAG_N, 0);
     cpu_set_flag(cpu, FLAG_H, 0);
-    cpu_set_flag(cpu, FLAG_C, a & 0x80);
+    cpu_set_flag(cpu, FLAG_C, (a & 0x80) == 0x80);
     return r;
 }
 
 uint8_t alu_rr(struct cpu *cpu, const uint8_t a) {
-    uint8_t c = cpu_flag(cpu, FLAG_C);
-    uint8_t r = (uint8_t)((c << 7) | (a >> 1));
+    uint8_t r = (uint8_t)((cpu_flag(cpu, FLAG_C) << 7) | (a >> 1));
     cpu_set_flag(cpu, FLAG_Z, r == 0);
     cpu_set_flag(cpu, FLAG_N, 0);
     cpu_set_flag(cpu, FLAG_H, 0);
-    cpu_set_flag(cpu, FLAG_C, a & 0x01);
+    cpu_set_flag(cpu, FLAG_C, (a & 0x01) == 0x01);
     return r;
 }
 
@@ -193,7 +190,7 @@ uint8_t alu_sla(struct cpu *cpu, const uint8_t a) {
     cpu_set_flag(cpu, FLAG_Z, r == 0);
     cpu_set_flag(cpu, FLAG_N, 0);
     cpu_set_flag(cpu, FLAG_H, 0);
-    cpu_set_flag(cpu, FLAG_C, a & 0x80);
+    cpu_set_flag(cpu, FLAG_C, (a & 0x80) == 0x80);
     return r;
 }
 
@@ -202,7 +199,7 @@ uint8_t alu_sra(struct cpu *cpu, const uint8_t a) {
     cpu_set_flag(cpu, FLAG_Z, r == 0);
     cpu_set_flag(cpu, FLAG_N, 0);
     cpu_set_flag(cpu, FLAG_H, 0);
-    cpu_set_flag(cpu, FLAG_C, a & 0x01);
+    cpu_set_flag(cpu, FLAG_C, (a & 0x01) == 0x01);
     return r;
 }
 
@@ -220,6 +217,6 @@ uint8_t alu_srl(struct cpu *cpu, const uint8_t a) {
     cpu_set_flag(cpu, FLAG_Z, r == 0);
     cpu_set_flag(cpu, FLAG_N, 0);
     cpu_set_flag(cpu, FLAG_H, 0);
-    cpu_set_flag(cpu, FLAG_C, a & 0x01);
+    cpu_set_flag(cpu, FLAG_C, (a & 0x01) == 0x01);
     return r;
 }

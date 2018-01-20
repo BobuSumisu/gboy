@@ -1,12 +1,16 @@
 TARGET	= gboy
 CC		= clang
-CFLAGS	= -g -DDEBUG -std=c11 -Wall -Wextra -Wpedantic -Werror
+CFLAGS	= -g -DDEBUG -std=gnu11 -Wall -Wextra -Wpedantic -Werror
 LD		= clang
 LFLAGS	= -Wall -Wextra -Werror
-LIBS	=
+LIBS	= -lSDL2
 
 SOURCES	:= $(wildcard src/*.c)
 OBJECTS	:= $(patsubst %.c,%.o,$(SOURCES))
+
+TESTROM0 = ./roms/tetris_rev_a.gb
+TESTROM1 = ./roms/dr_mario.gb
+TESTROM2 = ./roms/cpu_instrs/cpu_instrs.gb
 
 all: $(TARGET)
 
@@ -20,6 +24,18 @@ clean:
 	$(RM) $(TARGET) $(OBJECTS)
 
 test: $(TARGET)
-	./$(TARGET)
+	./$(TARGET) $(TESTROM0)
 
-.PHONY: all clean test
+test-1: $(TARGET)
+	./$(TARGET) $(TESTROM1)
+
+test-2: $(TARGET)
+	./$(TARGET) $(TESTROM2)
+
+valgrind: $(TARGET)
+	valgrind --leak-check=full ./$(TARGET) $(TESTROM)
+
+static: clean
+	scan-build make
+
+.PHONY: all clean test test-1 test-2 valgrind static
