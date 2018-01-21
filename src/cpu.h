@@ -14,16 +14,18 @@
 
 #include <inttypes.h>
 
+#define PRINT_DEBUG 0
+
 #define FLAG_Z 0x80
 #define FLAG_N 0x40
 #define FLAG_H 0x20
 #define FLAG_C 0x10
 
-#define INT_VBLANK  0x01
-#define INT_LCDC    0x02
-#define INT_TIMER   0x04
-#define INT_SERIAL  0x08
 #define INT_INPUT   0x10
+#define INT_SERIAL  0x08
+#define INT_TIMER   0x04
+#define INT_LCDC    0x02
+#define INT_VBLANK  0x01
 
 struct cpu {
     union {
@@ -57,6 +59,7 @@ struct cpu {
     uint16_t pc;
     uint16_t sp;
 
+    int running;
     int stop;
     int halt;
     int ime;

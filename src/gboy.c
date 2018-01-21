@@ -31,17 +31,25 @@ int gboy_init(struct gboy *gb) {
     timer_init(&gb->timer, &gb->cpu);
 
     /* Skip boot. */
-    // gb->mmu.reg_boot = 1;
-    // gb->cpu.af = 0x01B0;
-    // gb->cpu.bc = 0x0013;
-    // gb->cpu.de = 0x00D8;
-    // gb->cpu.hl = 0x014D;
-    // gb->cpu.pc = 0x0100;
-    // gb->cpu.sp = 0xFFFE;
-    // gb->gpu.reg_lcdc = 0x91;
-    // gb->gpu.reg_bgp = 0xFC;
-    // gb->gpu.reg_obp0 = 0xFF;
-    // gb->gpu.reg_obp1 = 0xFF;
+    gb->cpu.af = 0x01B0;
+    gb->cpu.bc = 0x0013;
+    gb->cpu.de = 0x00D8;
+    gb->cpu.hl = 0x014D;
+    gb->cpu.pc = 0x0100;
+    gb->cpu.sp = 0xFFFE;
+    mmu_wb(&gb->mmu, 0xFF00, 0x0F);
+    mmu_wb(&gb->mmu, 0xFF11, 0x80);
+    mmu_wb(&gb->mmu, 0xFF12, 0xF3);
+    mmu_wb(&gb->mmu, 0xFF13, 0xC1);
+    mmu_wb(&gb->mmu, 0xFF14, 0x87);
+    mmu_wb(&gb->mmu, 0xFF24, 0x77);
+    mmu_wb(&gb->mmu, 0xFF25, 0xF3);
+    mmu_wb(&gb->mmu, 0xFF26, 0x80);
+    mmu_wb(&gb->mmu, 0xFF40, 0x91);
+    mmu_wb(&gb->mmu, 0xFF41, 0x01);
+    mmu_wb(&gb->mmu, 0xFF44, 0x99);
+    mmu_wb(&gb->mmu, 0xFF47, 0xFC);
+    mmu_wb(&gb->mmu, 0xFF50, 0x01);
 
     return 0;
 }
@@ -60,17 +68,20 @@ void gboy_run(struct gboy *gb, const char *path) {
     int total_cycles, cycles;
     SDL_Event evt;
 
-    while(!gb->cpu.halt) {
+    gb->cpu.running = 1;
 
+    while(gb->cpu.running) {
         total_cycles = 0;
-        while(total_cycles < CYCLES_PER_FRAME && !gb->cpu.halt) {
+
+        while(total_cycles < CYCLES_PER_FRAME && gb->cpu.running) {
             cycles = cpu_step(&gb->cpu);
+            total_cycles += cycles;
             gpu_update(&gb->gpu, cycles);
             timer_update(&gb->timer, cycles);
-            total_cycles += cycles;
             if(gb->debug) {
                 cpu_debug(&gb->cpu);
-                printf("LCDC: 0x%02X LY: 0x%02X\n", gb->gpu.reg_lcdc, gb->gpu.reg_ly);
+                printf("LCDC: 0x%02X STAT: 0x%02X, LY: 0x%02X\n", gb->gpu.reg_lcdc,
+                    gb->gpu.reg_stat, gb->gpu.reg_ly);
                 if(getchar() == -1) {
                     gb->debug = 0;
                 }
@@ -91,12 +102,16 @@ void gboy_run(struct gboy *gb, const char *path) {
                         case SDLK_d:
                             gb->debug = 1;
                             break;
+                        case SDLK_p:
+                            cpu_debug(&gb->cpu);
+                            break;
                     }
                     break;
             }
         }
+
+        SDL_Delay(10);
     }
 
-    fprintf(stderr, "HALTED [press enter]\n");
-    getchar();
+    // getchar();
 }

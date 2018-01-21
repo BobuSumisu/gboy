@@ -1,6 +1,6 @@
 #include "instr_info.h"
 
-const struct instr_info INSTR_INFOS[256] = {
+const struct instr_info INSTR_INFO[256] = {
     { 0x00, "NOP", "NOP", OP_NONE, OP_TYPE_NONE, OP_NONE, OP_TYPE_NONE, 1, 4, 4, "----" },
     { 0x01, "LD BC,d16", "LD", OP_BC, OP_TYPE_REG16, OP_D16, OP_TYPE_IMM16, 3, 12, 12, "----" },
     { 0x02, "LD (BC),A", "LD", OP_BC_ADDR, OP_TYPE_REG16_ADDR, OP_A, OP_TYPE_REG8, 1, 8, 8, "----" },
@@ -259,7 +259,7 @@ const struct instr_info INSTR_INFOS[256] = {
     { 0xFF, "RST 38H", "RST", OP_38H, OP_TYPE_CONST, OP_NONE, OP_TYPE_NONE, 1, 16, 16, "----" },
 };
 
-const struct instr_info INSTR_INFOS_PREFIX[256] = {
+const struct instr_info INSTR_INFO_PREFIX[256] = {
     { 0x00, "RLC B", "RLC", OP_B, OP_TYPE_REG8, OP_NONE, OP_TYPE_NONE, 2, 8, 8, "Z00C" },
     { 0x01, "RLC C", "RLC", OP_C, OP_TYPE_REG8, OP_NONE, OP_TYPE_NONE, 2, 8, 8, "Z00C" },
     { 0x02, "RLC D", "RLC", OP_D, OP_TYPE_REG8, OP_NONE, OP_TYPE_NONE, 2, 8, 8, "Z00C" },
@@ -517,4 +517,3 @@ const struct instr_info INSTR_INFOS_PREFIX[256] = {
     { 0xFE, "SET 7,(HL)", "SET", OP_7, OP_TYPE_CONST, OP_HL_ADDR, OP_TYPE_REG16_ADDR, 2, 16, 16, "----" },
     { 0xFF, "SET 7,A", "SET", OP_7, OP_TYPE_CONST, OP_A, OP_TYPE_REG8, 2, 8, 8, "----" },
 };
-

@@ -5,83 +5,13 @@
 #include "cpu.h"
 #include "mmu.h"
 
+#define DEBUG_INSTR(...)
+
 /*** Private ***/
-
-#if 0
-static void instr_debug(struct cpu *cpu, const struct instr_info *info) {
-    uint16_t pc = cpu->pc - 1;
-    printf("%04X: ", pc);
-
-    for(uint16_t i = 0; i < 8; i++) {
-        if(i < info->size) {
-            printf("%02X ", mmu_rb(cpu->mmu, pc + i));
-        } else {
-            printf("   ");
-        }
-    }
-
-    printf("%s ", info->desc);
-
-    for(size_t i = 0; i < 20 - strlen(info->desc); i++) {
-        printf(" ");
-    }
-
-    if(info->size == 2) {
-        printf(" (0x%02X)", mmu_rb(cpu->mmu, pc + 1));
-    } else if(info->size == 3) {
-        printf(" (0x%04X)", mmu_rw(cpu->mmu, pc + 1));
-    }
-
-    if(strcmp(info->desc, "CP d8") == 0) {
-        printf(" (A=0x%02X)", cpu->a);
-    }
-
-    printf("\n");
-}
-#define DEBUG_INSTR() instr_debug(cpu, info)
-#else
-#define DEBUG_INSTR()
-#endif
-
-static int cpu_jr_if(struct cpu *cpu, const struct instr_info *info, int cond) {
-    int8_t a = (int8_t)cpu_fb(cpu);
-    if(cond) {
-        cpu->pc = (uint16_t)(cpu->pc + a);
-        return info->cond_cycles;
-    }
-    return info->cycles;
-}
-
-static int cpu_jp_if(struct cpu *cpu, const struct instr_info *info, int cond) {
-    uint16_t addr = cpu_fw(cpu);
-    if(cond) {
-        cpu->pc = addr;
-        return info->cond_cycles;
-    }
-    return info->cycles;
-}
-
-static int cpu_call_if(struct cpu *cpu, const struct instr_info *info, int cond) {
-    uint16_t addr = cpu_fw(cpu);
-    if(cond) {
-        cpu_push(cpu, cpu->pc);
-        cpu->pc = addr;
-        return info->cycles;
-    }
-    return info->cycles;
-}
-
-static int cpu_ret_if(struct cpu *cpu, const struct instr_info *info, int cond) {
-    if(cond) {
-        cpu->pc = cpu_pop(cpu);
-        return info->cycles;
-    }
-    return info->cycles;
-}
 
 static int instr_prefix(struct cpu *cpu) {
     uint8_t opcode = cpu_fb(cpu);
-    const struct instr_info *info = &INSTR_INFOS_PREFIX[opcode];
+    const struct instr_info *info = &INSTR_INFO_PREFIX[opcode];
     uint8_t op = (opcode >> 5) & 0x03;
     uint8_t n = (opcode >> 3) & 0x07;
     uint8_t r = (opcode >> 0) & 0x07;
@@ -141,44 +71,16 @@ static int instr_prefix(struct cpu *cpu) {
 
 int instr_fetch_decode_execute(struct cpu *cpu) {
     uint8_t opcode = cpu_fb(cpu);
-    const struct instr_info *info = &INSTR_INFOS[opcode];
+    const struct instr_info *info = &INSTR_INFO[opcode];
     DEBUG_INSTR();
 
     switch(opcode) {
 
         /* CPU Control Instructions */
 
-        case 0x00: return info->cycles;
-        case 0x10: cpu->stop = 1; return info->cycles;
-        case 0xF3: cpu->ime = 0; return info->cycles;
-        case 0x76: cpu->halt = 1; return info->cycles;
-        case 0xFB: cpu->ime = 1; return info->cycles;
         case 0xCB: return instr_prefix(cpu);
 
         /* Jump and Call Instructions */
-
-        case 0x18: return cpu_jr_if(cpu, info, 1);
-        case 0x20: return cpu_jr_if(cpu, info, !cpu_flag(cpu, FLAG_Z));
-        case 0x30: return cpu_jr_if(cpu, info, !cpu_flag(cpu, FLAG_C));
-        case 0x28: return cpu_jr_if(cpu, info, cpu_flag(cpu, FLAG_Z));
-        case 0x38: return cpu_jr_if(cpu, info, cpu_flag(cpu, FLAG_C));
-
-        case 0xC3: return cpu_jp_if(cpu, info, 1);
-        case 0xC2: return cpu_jp_if(cpu, info, !cpu_flag(cpu, FLAG_Z));
-        case 0xD2: return cpu_jp_if(cpu, info, !cpu_flag(cpu, FLAG_C));
-        case 0xCA: return cpu_jp_if(cpu, info, cpu_flag(cpu, FLAG_Z));
-        case 0xDA: return cpu_jp_if(cpu, info, cpu_flag(cpu, FLAG_C));
-
-        case 0xCD: return cpu_call_if(cpu, info, 1);
-        case 0xC4: return cpu_call_if(cpu, info, !cpu_flag(cpu, FLAG_Z));
-        case 0xD4: return cpu_call_if(cpu, info, !cpu_flag(cpu, FLAG_C));
-        case 0xCC: return cpu_call_if(cpu, info, cpu_flag(cpu, FLAG_Z));
-        case 0xDC: return cpu_call_if(cpu, info, cpu_flag(cpu, FLAG_C));
-
-        case 0xC0: return cpu_ret_if(cpu, info, !cpu_flag(cpu, FLAG_Z));
-        case 0xD0: return cpu_ret_if(cpu, info, !cpu_flag(cpu, FLAG_C));
-        case 0xC8: return cpu_ret_if(cpu, info, cpu_flag(cpu, FLAG_Z));
-        case 0xD8: return cpu_ret_if(cpu, info, cpu_flag(cpu, FLAG_C));
 
         case 0xC9: cpu->pc = cpu_pop(cpu); return info->cycles;
         case 0xD9: cpu->ime = 1; cpu->pc = cpu_pop(cpu); return info->cycles;
@@ -269,8 +171,8 @@ int instr_fetch_decode_execute(struct cpu *cpu) {
 
         case 0x02: mmu_wb(cpu->mmu, cpu->bc, cpu->a); return info->cycles;
         case 0x12: mmu_wb(cpu->mmu, cpu->de, cpu->a); return info->cycles;
-        case 0x22: mmu_wb(cpu->mmu, cpu->hl++, cpu->a); return info->cycles;
-        case 0x32: mmu_wb(cpu->mmu, cpu->hl--, cpu->a); return info->cycles;
+        case 0x22: mmu_wb(cpu->mmu, cpu->hl, cpu->a); cpu->hl++; return info->cycles;
+        case 0x32: mmu_wb(cpu->mmu, cpu->hl, cpu->a); cpu->hl--; return info->cycles;
 
         case 0x06: cpu->b = cpu_fb(cpu); return info->cycles;
         case 0x0E: cpu->c = cpu_fb(cpu); return info->cycles;

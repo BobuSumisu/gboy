@@ -1,5 +1,5 @@
-#ifndef __GAMEBOY_INSTR_INFO_H__
-#define __GAMEBOY_INSTR_INFO_H__
+#ifndef GBOY_INSTR_INFO_H
+#define GBOY_INSTR_INFO_H
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -81,7 +81,7 @@ struct instr_info {
     char           flags[4];
 };
 
-extern const struct instr_info INSTR_INFOS[256];
-extern const struct instr_info INSTR_INFOS_PREFIX[256];
+extern const struct instr_info INSTR_INFO[256];
+extern const struct instr_info INSTR_INFO_PREFIX[256];
 
 #endif

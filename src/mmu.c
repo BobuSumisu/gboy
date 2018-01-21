@@ -48,7 +48,7 @@ void mmu_cleanup(struct mmu *mmu) {
 }
 
 uint8_t mmu_rb(const struct mmu *mmu, const uint16_t addr) {
-    if(addr < 0x100 && !mmu->reg_boot) {
+    if(addr < 0x100 && mmu->reg_boot == 0) {
         return boot[addr];
     } else if(addr >= 0x0000 && addr < 0x4000) {
         return mmu->rom0[addr & 0x3FFF];
@@ -68,6 +68,7 @@ uint8_t mmu_rb(const struct mmu *mmu, const uint16_t addr) {
         return 0;
     } else if(addr >= 0xFF00 && addr < 0xFF80) {
         switch(addr) {
+            case 0xFF00: return 0x0F;
             case 0xFF04: return mmu->timer->reg_div;
             case 0xFF05: return mmu->timer->reg_tima;
             case 0xFF06: return mmu->timer->reg_tma;
@@ -99,7 +100,7 @@ uint8_t mmu_rb(const struct mmu *mmu, const uint16_t addr) {
 }
 
 void mmu_wb(struct mmu *mmu, const uint16_t addr, const uint8_t b) {
-    if(addr < 0x100 && !mmu->reg_boot) {
+    if(addr < 0x100 && mmu->reg_boot == 0) {
         /* boot ROM */
         fprintf(stderr, "write to boot rom!\n");
         exit(1);
@@ -127,7 +128,7 @@ void mmu_wb(struct mmu *mmu, const uint16_t addr, const uint8_t b) {
             case 0xFF07: mmu->timer->reg_tac = b; break;
             case 0xFF0F: mmu->cpu->reg_if = b; break;
             case 0xFF40: mmu->gpu->reg_lcdc = b; break;
-            case 0xFF41: mmu->gpu->reg_stat = b; break;
+            case 0xFF41: mmu->gpu->reg_stat = (b & 0xF8); break;
             case 0xFF42: mmu->gpu->reg_scy = b; break;
             case 0xFF43: mmu->gpu->reg_scx = b; break;
             case 0xFF44: mmu->gpu->reg_ly = 0; break;
@@ -171,11 +172,10 @@ int mmu_load_rom(struct mmu *mmu, const char *path) {
     }
     fclose(fp);
 
-    mmu->reg_boot = 1;
-    for(uint16_t i = 0; i < sizeof(buf); i++) {
-        mmu_wb(mmu, i, buf[i]);
+    for(uint16_t i = 0; i < 0x4000; i++) {
+        mmu->rom0[i] = buf[i];
+        mmu->rom1[i] = buf[0x4000 + i];
     }
-    mmu->reg_boot = 0;
 
     return 0;
 }

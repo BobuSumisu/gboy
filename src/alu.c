@@ -1,40 +1,41 @@
 #include <stdio.h>
+#include <assert.h>
 #include "alu.h"
 
 uint16_t alu_add_u16_i8(struct cpu *cpu, const uint16_t a, const int8_t b) {
-    uint16_t r = (uint16_t)(a + b);
+    uint32_t r = (uint32_t)(a + b);
     cpu_set_flag(cpu, FLAG_Z, 0);
     cpu_set_flag(cpu, FLAG_N, 0);
     cpu_set_flag(cpu, FLAG_H, (((a & 0x0FFF) + (b & 0x0FFF)) & 0x1000) == 0x1000);
-    cpu_set_flag(cpu, FLAG_C, (uint32_t)(a + b) > 0xFFFF);
-    return r;
+    cpu_set_flag(cpu, FLAG_C, r > 0xFFFF);
+    return (uint16_t)r;
 }
 
 uint16_t alu_add16(struct cpu *cpu, const uint16_t a, const uint16_t b) {
-    uint16_t r = a + b;
+    uint32_t r = a + b;
     cpu_set_flag(cpu, FLAG_N, 0);
     cpu_set_flag(cpu, FLAG_H, (((a & 0x0FFF) + (b & 0x0FFF)) & 0x1000) == 0x1000);
-    cpu_set_flag(cpu, FLAG_C, (uint32_t)(a + b) > 0xFFFF);
-    return r;
+    cpu_set_flag(cpu, FLAG_C, r > 0xFFFF);
+    return (uint16_t)r;
 }
 
 uint8_t alu_add(struct cpu *cpu, const uint8_t a, const uint8_t b) {
-    uint8_t r = a + b;
-    cpu_set_flag(cpu, FLAG_Z, r == 0);
+    uint16_t r = a + b;
+    cpu_set_flag(cpu, FLAG_Z, (uint8_t)r == 0);
     cpu_set_flag(cpu, FLAG_N, 0);
     cpu_set_flag(cpu, FLAG_H, (((a & 0x0F) + (b & 0x0F)) & 0x10) == 0x10);
-    cpu_set_flag(cpu, FLAG_C, (uint16_t)(a + b) > 0xFF);
-    return r;
+    cpu_set_flag(cpu, FLAG_C, r > 0xFF);
+    return (uint8_t)r;
 }
 
 uint8_t alu_adc(struct cpu *cpu, const uint8_t a, const uint8_t b) {
     uint8_t c = cpu_flag(cpu, FLAG_C);
-    uint8_t r = a + b + c;
-    cpu_set_flag(cpu, FLAG_Z, r == 0);
+    uint16_t r = a + b + c;
+    cpu_set_flag(cpu, FLAG_Z, (uint8_t)r == 0);
     cpu_set_flag(cpu, FLAG_N, 0);
     cpu_set_flag(cpu, FLAG_H, (((a & 0x0F) + (b & 0x0F) + c) & 0x10) == 0x10);
-    cpu_set_flag(cpu, FLAG_C, (uint16_t)(a + b + c) > 0xFF);
-    return r;
+    cpu_set_flag(cpu, FLAG_C, r > 0xFF);
+    return (uint8_t)r;
 }
 
 uint8_t alu_sub(struct cpu *cpu, const uint8_t a, const uint8_t b) {
@@ -134,23 +135,26 @@ void alu_ccf(struct cpu *cpu) {
 }
 
 void alu_bit(struct cpu *cpu, const uint8_t a, const uint8_t n) {
-    cpu_set_flag(cpu, FLAG_Z, !((a >> n) & 1));
+    assert(n < 8);
+    cpu_set_flag(cpu, FLAG_Z, (a & (1 << n)) == 0);
     cpu_set_flag(cpu, FLAG_N, 0);
     cpu_set_flag(cpu, FLAG_H, 1);
 }
 
 uint8_t alu_res(struct cpu *cpu, const uint8_t a, const uint8_t n) {
+    assert(n < 8);
     (void)cpu;
     return a & ~(1 << n);
 }
 
 uint8_t alu_set(struct cpu *cpu, const uint8_t a, const uint8_t n) {
+    assert(n < 8);
     (void)cpu;
-    return (uint8_t)(a | ~(1 << n));
+    return (uint8_t)(a | (1 << n));
 }
 
 uint8_t alu_rlc(struct cpu *cpu, const uint8_t a) {
-    uint8_t r = (uint8_t)((a << 1) | (a & 0x1));
+    uint8_t r = (uint8_t)((a << 1) | (a >> 7));
     cpu_set_flag(cpu, FLAG_Z, r == 0);
     cpu_set_flag(cpu, FLAG_N, 0);
     cpu_set_flag(cpu, FLAG_H, 0);

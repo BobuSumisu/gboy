@@ -8,9 +8,9 @@ LIBS	= -lSDL2
 SOURCES	:= $(wildcard src/*.c)
 OBJECTS	:= $(patsubst %.c,%.o,$(SOURCES))
 
-TESTROM0 = ./roms/tetris_rev_a.gb
-TESTROM1 = ./roms/dr_mario.gb
-TESTROM2 = ./roms/cpu_instrs/cpu_instrs.gb
+ROM_TETRIS 	= ./roms/tetris_rev_a.gb
+ROM_DRMARIO = ./roms/dr_mario.gb
+ROM_INSTRS	= ./roms/cpu_instrs/cpu_instrs.gb
 
 all: $(TARGET)
 
@@ -23,14 +23,16 @@ src/%.o : src/%.c
 clean:
 	$(RM) $(TARGET) $(OBJECTS)
 
-test: $(TARGET)
-	./$(TARGET) $(TESTROM0)
+test: test-tetris
 
-test-1: $(TARGET)
-	./$(TARGET) $(TESTROM1)
+test-tetris: $(TARGET)
+	./$(TARGET) $(ROM_TETRIS)
 
-test-2: $(TARGET)
-	./$(TARGET) $(TESTROM2)
+test-drmario: $(TARGET)
+	./$(TARGET) $(ROM_DRMARIO)
+
+test-instrs: $(TARGET)
+	./$(TARGET) $(ROM_INSTRS)
 
 valgrind: $(TARGET)
 	valgrind --leak-check=full ./$(TARGET) $(TESTROM)
@@ -38,4 +40,4 @@ valgrind: $(TARGET)
 static: clean
 	scan-build make
 
-.PHONY: all clean test test-1 test-2 valgrind static
+.PHONY: all clean test test-tetris test-drmario test-instrs valgrind static

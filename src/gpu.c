@@ -1,25 +1,26 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 #include "gpu.h"
 #include "bitutil.h"
 #include "screen.h"
 #include "cpu.h"
 
-#define CYCLES_HBLANK 204
-#define CYCLES_VBLANK 4560
-#define CYCLES_OAM 80
-#define CYCLES_RAM 172
-#define CYCLES_LINE (CYCLES_OAM + CYCLES_RAM + CYCLES_HBLANK)
+#define CYCLES_HBLANK   204
+#define CYCLES_VBLANK   4560    /* 10 lines */
+#define CYCLES_OAM      80
+#define CYCLES_RAM      172
+#define CYCLES_LINE     456     /* OAM+RAM+HBLANK */
 
 /*** Private ***/
 
 static uint8_t get_color(uint8_t data, uint8_t palette) {
     switch(data) {
         case 0: return (palette >> 0) & 0x03;
-        case 1: return (palette >> 1) & 0x03;
-        case 2: return (palette >> 2) & 0x03;
-        case 3: return (palette >> 3) & 0x03;
+        case 1: return (palette >> 2) & 0x03;
+        case 2: return (palette >> 4) & 0x03;
+        case 3: return (palette >> 6) & 0x03;
     }
     return 0;
 }
@@ -33,6 +34,20 @@ static uint8_t get_color_value(uint8_t color) {
     }
     return 0xFF;
 }
+
+#define OBJ_ATTR_PRIORITY       0x80
+#define OBJ_ATTR_VFLIP          0x40
+#define OBJ_ATTR_HFLIP          0x20
+#define OBJ_ATTR_PALETTE        0x10
+#define OBJ_ATTR_BANK_CGB       0x08
+#define OBJ_ATTR_PALETTE_CGB    0x07
+
+struct obj {
+    uint8_t y;
+    uint8_t x;
+    uint8_t tile_id;
+    uint8_t attr;
+} __attribute__ ((packed));
 
 /* Make it a little easier to work with tile pixel data. */
 struct tile_data {
@@ -51,13 +66,16 @@ static uint8_t tile_data_pixel(const struct tile_data *data, const int i, const 
 
 static void gpu_scanline_background(struct gpu *gpu) {
     int win = 0;
+    int signed_ids = (gpu->reg_lcdc & LCDC_BG_DATA) == 0;
 
     if(gpu->reg_lcdc & LCDC_WIN_ON) {
         win = gpu->reg_wy <= gpu->reg_ly;
     }
 
     if(win) {
-        printf("win!\n");
+        printf("window not implemented!\n");
+        gpu->cpu->running = 0;
+        return;
     }
 
     uint8_t sy = gpu->reg_ly + gpu->reg_scy;
@@ -73,6 +91,10 @@ static void gpu_scanline_background(struct gpu *gpu) {
 
         /* Get the tile id. */
         uint8_t tile_id = map_data[(my * 32) + mx];
+
+        if(signed_ids) {
+            tile_id = (uint8_t)((int8_t)(tile_id + 128));
+        }
 
         /* And pixel y, x. */
         uint8_t py = sy % 8;
@@ -90,13 +112,52 @@ static void gpu_scanline_background(struct gpu *gpu) {
         gpu->screen->back_buffer[rgb_index + 0] = value;
         gpu->screen->back_buffer[rgb_index + 1] = value;
         gpu->screen->back_buffer[rgb_index + 2] = value;
-        gpu->screen->back_buffer[rgb_index + 4] = 0xFF;
+        gpu->screen->back_buffer[rgb_index + 3] = 0xFF;
     }
 }
 
 static void gpu_scanline_objects(struct gpu *gpu) {
-    (void)gpu;
-    printf("objects\n");
+    /* TODO: sprite overlapping, priority */
+    struct obj *obj;
+    uint8_t h = (gpu->reg_lcdc & LCDC_OBJ_SIZE) ? 16 : 8;
+    for(int i = 0; i < 40; i++) {
+        obj = (struct obj *)&gpu->oam[i * 4];
+        uint8_t y = obj->y - 16;
+        uint8_t x = obj->x - 8;
+
+        if(gpu->reg_ly >= y && gpu->reg_ly < (y + h)) {
+            uint8_t py = gpu->reg_ly - y;
+            if(obj->attr & OBJ_ATTR_VFLIP) {
+                py = h - py;
+            }
+
+            for(uint8_t px = 0; px < 8; px++) {
+                uint8_t data;
+                if(obj->attr & OBJ_ATTR_HFLIP) {
+                    data = tile_data_pixel((struct tile_data *)&gpu->vram[0], obj->tile_id, py, 8 - px);
+                } else {
+                    data = tile_data_pixel((struct tile_data *)&gpu->vram[0], obj->tile_id, py, px);
+                }
+
+                if(data == 0) {
+                    continue;
+                }
+
+                uint8_t color = get_color(data, (obj->attr & OBJ_ATTR_PALETTE) ? gpu->reg_obp1 : gpu->reg_obp0);
+
+                if(obj->attr & OBJ_ATTR_PRIORITY) {
+                    /* TODO: priority */
+                }
+
+                uint8_t value = get_color_value(color);
+                int rgb_index = ((gpu->reg_ly * SCREEN_WIDTH) + x + px) * 4;
+                gpu->screen->back_buffer[rgb_index + 0] = value;
+                gpu->screen->back_buffer[rgb_index + 1] = value;
+                gpu->screen->back_buffer[rgb_index + 2] = value;
+                gpu->screen->back_buffer[rgb_index + 3] = 0xFF;
+            }
+        }
+    }
 }
 
 static void gpu_scanline(struct gpu *gpu) {
@@ -115,6 +176,7 @@ void gpu_init(struct gpu *gpu, struct cpu *cpu, struct screen *screen) {
     memset(gpu, 0, sizeof(struct gpu));
     gpu->cpu = cpu;
     gpu->screen = screen;
+    gpu->mode = GPU_MODE_OAM;
 }
 
 void gpu_cleanup(struct gpu *gpu) {
@@ -122,87 +184,101 @@ void gpu_cleanup(struct gpu *gpu) {
 }
 
 void gpu_update(struct gpu *gpu, int cycles) {
+    assert(gpu->reg_ly < 154);
+
+    /* Update MODE in STAT. */
+    if((gpu->reg_stat & 3) != gpu->mode) {
+        gpu->reg_stat = (gpu->reg_stat & 0xFC) | gpu->mode;
+    }
 
     /* Check that LCD is turned on. */
-    if(!(gpu->reg_lcdc & LCDC_ON)) {
+    if((gpu->reg_lcdc & LCDC_ON) == 0) {
+        gpu->clock = 0;
+        // gpu->mode = GPU_MODE_OAM; Dr. Mario hangs if not 0?
+        gpu->mode = 0;
+        gpu->reg_ly = 0;
         return;
     }
 
-    gpu->clock += cycles;
-
-    /* Check if should switch mode (and reset clock). */
-    enum gpu_mode new_mode = gpu->mode;
-    switch(gpu->mode) {
-        case GPU_MODE_HBLANK:
-            if(gpu->clock >= CYCLES_HBLANK) {
-                gpu->clock -= CYCLES_HBLANK;
-                gpu->reg_ly++;
-                if(gpu->reg_ly == 144) {
-                    new_mode = GPU_MODE_VBLANK;
-                } else {
-                    new_mode = GPU_MODE_OAM;
-                }
-            }
-            break;
-        case GPU_MODE_VBLANK:
-            /* 10 lines */
-            if(gpu->clock >= CYCLES_LINE) {
-                gpu->clock -= CYCLES_LINE;
-                gpu->reg_ly++;
-                if(gpu->reg_ly == 154) {
-                    gpu->reg_ly = 0;
-                    new_mode = GPU_MODE_OAM;
-                }
-            }
-            break;
-        case GPU_MODE_OAM:
-            if(gpu->clock >= CYCLES_OAM) {
-                gpu->clock -= CYCLES_OAM;
-                new_mode = GPU_MODE_RAM;
-            }
-            break;
-        case GPU_MODE_RAM:
-            if(gpu->clock >= CYCLES_RAM) {
-                gpu->clock -= CYCLES_RAM;
-                new_mode = GPU_MODE_HBLANK;
-            }
-            break;
-    }
-
-    /* Check if LY == LYC and interrupt if enabled. */
+    /* Set MATCH field in STAT and interrupt if enabled. */
     if(gpu->reg_ly == gpu->reg_lyc) {
         gpu->reg_stat |= STAT_MATCH;
         if(gpu->reg_stat & STAT_INT_MATCH) {
             gpu->cpu->reg_if |= INT_LCDC;
         }
+    } else {
+        gpu->reg_stat &= ~STAT_MATCH;
     }
 
-    if(new_mode != gpu->mode) {
-        /* Write current mode to STAT_MODE */
-        gpu->reg_stat = (gpu->reg_stat & 0xFC) | gpu->mode;
+    gpu->clock += cycles;
 
-        gpu->mode = new_mode;
-        switch(new_mode) {
-            case GPU_MODE_HBLANK:
+    /* Check if we should switch mode and. */
+    switch(gpu->mode) {
+        case GPU_MODE_OAM:
+            if(gpu->clock >= CYCLES_OAM) {
+                /* Switch OAM -> RAM */
+                gpu->clock %= CYCLES_OAM;
+                gpu->mode = GPU_MODE_RAM;
+            }
+            break;
+        case GPU_MODE_RAM:
+            if(gpu->clock >= CYCLES_RAM) {
+                /* Switch RAM -> HBLANK */
+                gpu->clock %= CYCLES_RAM;
+                gpu->mode = GPU_MODE_HBLANK;
+
+                /* Do at scanline now. */
+                gpu_scanline(gpu);
+
+                /* STAT HBLANK interrupt. */
                 if(gpu->reg_stat & STAT_INT_HBLANK) {
                     gpu->cpu->reg_if |= INT_LCDC;
                 }
-                break;
-            case GPU_MODE_VBLANK:
-                if(gpu->reg_stat & STAT_INT_VBLANK) {
-                    gpu->cpu->reg_if |= INT_LCDC;
+            }
+            break;
+        case GPU_MODE_HBLANK:
+            if(gpu->clock >= CYCLES_HBLANK) {
+                gpu->clock %= CYCLES_HBLANK;
+                gpu->reg_ly++;
+                if(gpu->reg_ly == 144) {
+                    /* Switch HBLANK -> VBLANK */
+                    gpu->mode = GPU_MODE_VBLANK;
+
+                    /* VBLANK interrupt */
+                    gpu->cpu->reg_if |= INT_VBLANK;
+
+                    /* STAT VBLANK interrupt */
+                    if(gpu->reg_stat & STAT_INT_VBLANK) {
+                        gpu->cpu->reg_if |= INT_LCDC;
+                    }
+                } else {
+                    /* Switch HBLANK -> OAM */
+                    gpu->mode = GPU_MODE_OAM;
+
+                    /* STAT OAM interrupt */
+                    if(gpu->reg_stat & STAT_INT_OAM) {
+                        gpu->cpu->reg_if |= INT_LCDC;
+                    }
                 }
-                gpu->cpu->reg_if |= INT_VBLANK;
-                break;
-            case GPU_MODE_OAM:
-                if(gpu->reg_stat & STAT_INT_OAM) {
-                    gpu->cpu->reg_if |= INT_LCDC;
+            }
+            break;
+        case GPU_MODE_VBLANK:
+            /* VBLANK is basically 10 lines (OAM+RAM+HBLANK). */
+            if(gpu->clock >= CYCLES_LINE) {
+                gpu->clock %= CYCLES_LINE;
+                gpu->reg_ly++;
+                if(gpu->reg_ly == 154) {
+                    /* Switch VBLANK -> OAM */
+                    gpu->reg_ly = 0;
+                    gpu->mode = GPU_MODE_OAM;
+
+                    /* STAT OAM interrupt. */
+                    if(gpu->reg_stat & STAT_INT_OAM) {
+                        gpu->cpu->reg_if |= INT_LCDC;
+                    }
                 }
-                break;
-            case GPU_MODE_RAM:
-                gpu_scanline(gpu);
-                break;
-        }
+            }
+            break;
     }
 }
 
