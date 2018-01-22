@@ -1,24 +1,50 @@
-#ifndef GBOY_SOUND_H
-#define GBOY_SOUND_H
+/*
+ *  audio.h
+ *  =======
+ *
+ *  Audio generation using SDL.
+ *
+ *  CPU time (t-clock) is in 4194304 Hz.
+ *
+ *  Sweep time specified in relation to 128 Hz:
+ *
+ *      000:
+ *      001:  7.8ms (1/128 Hz)
+ *      010: 15.6ms (2/128 Hz)
+ *      011: 23.4ms (3/128 Hz)
+ *      100: 31.3ms (4/128 Hz)
+ *      101: 39.1ms (5/128 Hz)
+ *      110: 46.9ms (6/128 Hz)
+ *      111: 54.7ms (7/128 Hz)
+ *
+ *  Change in frequency: X(t) = X(t - 1) +/- X(t - 1) / 2^n     t=sweep time, n=sweep shifts
+ *
+ *  Sound length = (64 - t1) * (1 / 256) seconds.
+ *
+ *  Envelope step = n * (1 / 64) seconds.
+ *
+ */
+#ifndef GBOY_AUDIO_H
+#define GBOY_AUDIO_H
 
 #include <inttypes.h>
 #include <SDL2/SDL.h>
 
-struct wave_sound {
-    uint8_t     sweep_time;
-    uint8_t     sweep_dir;
-    uint8_t     sweep_shift;
-    uint8_t     wave_duty;
-    uint8_t     wave_len;
-    uint8_t     env_vol;
-    uint8_t     env_dir;
-    uint8_t     env_sweep;
+struct sound {
+    uint8_t     duty;
+    float       len;
     uint16_t    freq;
-    uint8_t     consec;
-    uint8_t     initial;
+    float       clock;
+    float       env_init;
+    int         env_dir;
+    int         env_sweeps;
+    float       env;
+    uint8_t     one_shot;
+    int         out_so1;
+    int         out_so2;
 };
 
-struct sound {
+struct audio {
     uint8_t reg_nr10;       /* 0xFF10 - Sound 1 Sweep */
     uint8_t reg_nr11;       /* 0xFF11 - Sound 1 Wave */
     uint8_t reg_nr12;       /* 0xFF12 - Sound 1 Envelope */
@@ -49,13 +75,19 @@ struct sound {
 
     SDL_AudioDeviceID dev;
 
-    struct wave_sound sound1;
+    int clock;
+    int sample;
+
+    float sound1_clock;
+
+    struct sound sound1;
+    struct sound sound2;
 };
 
-void    sound_init(struct sound *sound);
-void    sound_cleanup(struct sound *sound);
-void    sound_update(struct sound *sound, const int cycles);
-uint8_t sound_rb(struct sound *sound, const uint16_t addr);
-void    sound_wb(struct sound *sound, const uint16_t addr, const uint8_t b);
+void    audio_init(struct audio *audio);
+void    audio_cleanup(struct audio *audio);
+void    audio_update(struct audio *audio, const int cycles);
+uint8_t audio_rb(struct audio *audio, const uint16_t addr);
+void    audio_wb(struct audio *audio, const uint16_t addr, const uint8_t b);
 
 #endif

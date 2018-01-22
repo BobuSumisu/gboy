@@ -6,7 +6,7 @@
 #include "gpu.h"
 #include "timer.h"
 #include "input.h"
-#include "sound.h"
+#include "audio.h"
 
 /*** Private ***/
 
@@ -39,13 +39,13 @@ static void mmu_dma_transfer(struct mmu *mmu) {
 /*** Public ***/
 
 void mmu_init(struct mmu *mmu, struct cpu *cpu, struct gpu *gpu, struct timer *timer,
-        struct input *input, struct sound *sound) {
+        struct input *input, struct audio *audio) {
     memset(mmu, 0, sizeof(struct mmu));
     mmu->cpu = cpu;
     mmu->gpu = gpu;
     mmu->timer = timer;
     mmu->input = input;
-    mmu->sound = sound;
+    mmu->audio = audio;
 }
 
 void mmu_cleanup(struct mmu *mmu) {
@@ -103,13 +103,13 @@ uint8_t mmu_rb(const struct mmu *mmu, const uint16_t addr) {
             case 0xFF24:
             case 0xFF25:
             case 0xFF26:
-                return sound_rb(mmu->sound, addr);
+                return audio_rb(mmu->audio, addr);
 
             case 0xFF30: case 0xFF31: case 0xFF32: case 0xFF33:
             case 0xFF34: case 0xFF35: case 0xFF36: case 0xFF37:
             case 0xFF38: case 0xFF39: case 0xFF3A: case 0xFF3B:
             case 0xFF3C: case 0xFF3D: case 0xFF3E: case 0xFF3F:
-                return mmu->sound->wave_ram[addr & 0x0F];
+                return mmu->audio->wave_ram[addr & 0x0F];
 
             case 0xFF40: return mmu->gpu->reg_lcdc;
             case 0xFF41: return mmu->gpu->reg_stat;
@@ -187,14 +187,14 @@ void mmu_wb(struct mmu *mmu, const uint16_t addr, const uint8_t b) {
             case 0xFF24:
             case 0xFF25:
             case 0xFF26:
-                sound_wb(mmu->sound, addr, b);
+                audio_wb(mmu->audio, addr, b);
                 break;
 
             case 0xFF30: case 0xFF31: case 0xFF32: case 0xFF33:
             case 0xFF34: case 0xFF35: case 0xFF36: case 0xFF37:
             case 0xFF38: case 0xFF39: case 0xFF3A: case 0xFF3B:
             case 0xFF3C: case 0xFF3D: case 0xFF3E: case 0xFF3F:
-                mmu->sound->wave_ram[addr & 0x0F] = b;
+                mmu->audio->wave_ram[addr & 0x0F] = b;
                 break;
 
             case 0xFF40: mmu->gpu->reg_lcdc = b; break;

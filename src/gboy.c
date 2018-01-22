@@ -78,12 +78,12 @@ int gboy_init(struct gboy *gb) {
     }
 
     cpu_init(&gb->cpu, &gb->mmu);
-    mmu_init(&gb->mmu, &gb->cpu, &gb->gpu, &gb->timer, &gb->input, &gb->sound);
+    mmu_init(&gb->mmu, &gb->cpu, &gb->gpu, &gb->timer, &gb->input, &gb->audio);
     screen_init(&gb->screen);
     gpu_init(&gb->gpu, &gb->cpu, &gb->screen);
     timer_init(&gb->timer, &gb->cpu);
     input_init(&gb->input);
-    sound_init(&gb->sound);
+    audio_init(&gb->audio);
 
     /* Skip boot. */
     if(0) {
@@ -106,7 +106,7 @@ void gboy_cleanup(struct gboy *gb) {
     gpu_cleanup(&gb->gpu);
     timer_cleanup(&gb->timer);
     input_cleanup(&gb->input);
-    sound_cleanup(&gb->sound);
+    audio_cleanup(&gb->audio);
     SDL_Quit();
 }
 
@@ -128,7 +128,7 @@ void gboy_run(struct gboy *gb, const char *path) {
             total_cycles += cycles;
             gpu_update(&gb->gpu, cycles);
             timer_update(&gb->timer, cycles);
-            sound_update(&gb->sound, cycles);
+            audio_update(&gb->audio, cycles);
             if(gb->debug) {
                 cpu_debug(&gb->cpu);
                 printf("LCDC: 0x%02X STAT: 0x%02X, LY: 0x%02X\n", gb->gpu.reg_lcdc,

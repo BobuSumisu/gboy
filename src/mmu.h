@@ -28,11 +28,11 @@ struct mmu {
     struct gpu *gpu;
     struct timer *timer;
     struct input *input;
-    struct sound *sound;
+    struct audio *audio;
 };
 
 void        mmu_init(struct mmu *mmu, struct cpu *cpu, struct gpu *gpu, struct timer *timer,
-                struct input *input, struct sound *sound);
+                struct input *input, struct audio *audio);
 void        mmu_cleanup(struct mmu *mmu);
 uint8_t     mmu_rb(const struct mmu *mmu, const uint16_t addr);
 void        mmu_wb(struct mmu *mmu, const uint16_t addr, const uint8_t b);

@@ -3,7 +3,7 @@ CC		= clang
 CFLAGS	= -g -DDEBUG -std=gnu11 -Wall -Wextra -Wpedantic -Werror
 LD		= clang
 LFLAGS	= -Wall -Wextra -Werror
-LIBS	= -lSDL2
+LIBS	= -lm -lSDL2
 
 SOURCES	:= $(wildcard src/*.c)
 OBJECTS	:= $(patsubst %.c,%.o,$(SOURCES))
