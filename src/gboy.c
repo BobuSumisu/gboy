@@ -72,38 +72,29 @@ int gboy_init(struct gboy *gb) {
     memset(gb, 0, sizeof(struct gboy));
     gb->debug = 0;
 
-    if(SDL_Init(SDL_INIT_VIDEO) != 0) {
+    if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
         fprintf(stderr, "failed to initialize SDL: %s\n", SDL_GetError());
         return -1;
     }
 
     cpu_init(&gb->cpu, &gb->mmu);
-    mmu_init(&gb->mmu, &gb->cpu, &gb->gpu, &gb->timer, &gb->input);
+    mmu_init(&gb->mmu, &gb->cpu, &gb->gpu, &gb->timer, &gb->input, &gb->sound);
     screen_init(&gb->screen);
     gpu_init(&gb->gpu, &gb->cpu, &gb->screen);
     timer_init(&gb->timer, &gb->cpu);
     input_init(&gb->input);
+    sound_init(&gb->sound);
 
     /* Skip boot. */
-    gb->cpu.af = 0x01B0;
-    gb->cpu.bc = 0x0013;
-    gb->cpu.de = 0x00D8;
-    gb->cpu.hl = 0x014D;
-    gb->cpu.pc = 0x0100;
-    gb->cpu.sp = 0xFFFE;
-    mmu_wb(&gb->mmu, 0xFF00, 0x0F);
-    mmu_wb(&gb->mmu, 0xFF11, 0x80);
-    mmu_wb(&gb->mmu, 0xFF12, 0xF3);
-    mmu_wb(&gb->mmu, 0xFF13, 0xC1);
-    mmu_wb(&gb->mmu, 0xFF14, 0x87);
-    mmu_wb(&gb->mmu, 0xFF24, 0x77);
-    mmu_wb(&gb->mmu, 0xFF25, 0xF3);
-    mmu_wb(&gb->mmu, 0xFF26, 0x80);
-    mmu_wb(&gb->mmu, 0xFF40, 0x91);
-    mmu_wb(&gb->mmu, 0xFF41, 0x01);
-    mmu_wb(&gb->mmu, 0xFF44, 0x99);
-    mmu_wb(&gb->mmu, 0xFF47, 0xFC);
-    mmu_wb(&gb->mmu, 0xFF50, 0x01);
+    if(0) {
+        gb->cpu.af = 0x01B0;
+        gb->cpu.bc = 0x0013;
+        gb->cpu.de = 0x00D8;
+        gb->cpu.hl = 0x014D;
+        gb->cpu.pc = 0x0100;
+        gb->cpu.sp = 0xFFFE;
+        gb->mmu.reg_boot = 1;
+    }
 
     return 0;
 }
@@ -114,6 +105,8 @@ void gboy_cleanup(struct gboy *gb) {
     screen_cleanup(&gb->screen);
     gpu_cleanup(&gb->gpu);
     timer_cleanup(&gb->timer);
+    input_cleanup(&gb->input);
+    sound_cleanup(&gb->sound);
     SDL_Quit();
 }
 
@@ -135,6 +128,7 @@ void gboy_run(struct gboy *gb, const char *path) {
             total_cycles += cycles;
             gpu_update(&gb->gpu, cycles);
             timer_update(&gb->timer, cycles);
+            sound_update(&gb->sound, cycles);
             if(gb->debug) {
                 cpu_debug(&gb->cpu);
                 printf("LCDC: 0x%02X STAT: 0x%02X, LY: 0x%02X\n", gb->gpu.reg_lcdc,

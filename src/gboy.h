@@ -19,6 +19,7 @@
 #include "screen.h"
 #include "timer.h"
 #include "input.h"
+#include "sound.h"
 
 struct gboy {
     int debug;
@@ -28,6 +29,7 @@ struct gboy {
     struct screen screen;
     struct timer timer;
     struct input input;
+    struct sound sound;
 };
 
 int     gboy_init(struct gboy *gboy);

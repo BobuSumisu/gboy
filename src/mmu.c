@@ -6,6 +6,7 @@
 #include "gpu.h"
 #include "timer.h"
 #include "input.h"
+#include "sound.h"
 
 /*** Private ***/
 
@@ -37,12 +38,14 @@ static void mmu_dma_transfer(struct mmu *mmu) {
 
 /*** Public ***/
 
-void mmu_init(struct mmu *mmu, struct cpu *cpu, struct gpu *gpu, struct timer *timer, struct input *input) {
+void mmu_init(struct mmu *mmu, struct cpu *cpu, struct gpu *gpu, struct timer *timer,
+        struct input *input, struct sound *sound) {
     memset(mmu, 0, sizeof(struct mmu));
     mmu->cpu = cpu;
     mmu->gpu = gpu;
     mmu->timer = timer;
     mmu->input = input;
+    mmu->sound = sound;
 }
 
 void mmu_cleanup(struct mmu *mmu) {
@@ -71,11 +74,43 @@ uint8_t mmu_rb(const struct mmu *mmu, const uint16_t addr) {
     } else if(addr >= 0xFF00 && addr < 0xFF80) {
         switch(addr) {
             case 0xFF00: return input_rb(mmu->input);
+
             case 0xFF04: return mmu->timer->reg_div;
             case 0xFF05: return mmu->timer->reg_tima;
             case 0xFF06: return mmu->timer->reg_tma;
             case 0xFF07: return mmu->timer->reg_tac;
+
             case 0xFF0F: return mmu->cpu->reg_if;
+
+            case 0xFF10:
+            case 0xFF11:
+            case 0xFF12:
+            case 0xFF13:
+            case 0xFF14:
+            case 0xFF16:
+            case 0xFF17:
+            case 0xFF18:
+            case 0xFF19:
+            case 0xFF1A:
+            case 0xFF1B:
+            case 0xFF1C:
+            case 0xFF1D:
+            case 0xFF1E:
+            case 0xFF20:
+            case 0xFF21:
+            case 0xFF22:
+            case 0xFF23:
+            case 0xFF24:
+            case 0xFF25:
+            case 0xFF26:
+                return sound_rb(mmu->sound, addr);
+
+            case 0xFF30: case 0xFF31: case 0xFF32: case 0xFF33:
+            case 0xFF34: case 0xFF35: case 0xFF36: case 0xFF37:
+            case 0xFF38: case 0xFF39: case 0xFF3A: case 0xFF3B:
+            case 0xFF3C: case 0xFF3D: case 0xFF3E: case 0xFF3F:
+                return mmu->sound->wave_ram[addr & 0x0F];
+
             case 0xFF40: return mmu->gpu->reg_lcdc;
             case 0xFF41: return mmu->gpu->reg_stat;
             case 0xFF42: return mmu->gpu->reg_scy;
@@ -130,6 +165,38 @@ void mmu_wb(struct mmu *mmu, const uint16_t addr, const uint8_t b) {
             case 0xFF06: mmu->timer->reg_tma = b; break;
             case 0xFF07: mmu->timer->reg_tac = b; break;
             case 0xFF0F: mmu->cpu->reg_if = b; break;
+
+            case 0xFF10:
+            case 0xFF11:
+            case 0xFF12:
+            case 0xFF13:
+            case 0xFF14:
+            case 0xFF16:
+            case 0xFF17:
+            case 0xFF18:
+            case 0xFF19:
+            case 0xFF1A:
+            case 0xFF1B:
+            case 0xFF1C:
+            case 0xFF1D:
+            case 0xFF1E:
+            case 0xFF20:
+            case 0xFF21:
+            case 0xFF22:
+            case 0xFF23:
+            case 0xFF24:
+            case 0xFF25:
+            case 0xFF26:
+                sound_wb(mmu->sound, addr, b);
+                break;
+
+            case 0xFF30: case 0xFF31: case 0xFF32: case 0xFF33:
+            case 0xFF34: case 0xFF35: case 0xFF36: case 0xFF37:
+            case 0xFF38: case 0xFF39: case 0xFF3A: case 0xFF3B:
+            case 0xFF3C: case 0xFF3D: case 0xFF3E: case 0xFF3F:
+                mmu->sound->wave_ram[addr & 0x0F] = b;
+                break;
+
             case 0xFF40: mmu->gpu->reg_lcdc = b; break;
             case 0xFF41: mmu->gpu->reg_stat = (b & 0xF8); break;
             case 0xFF42: mmu->gpu->reg_scy = b; break;
