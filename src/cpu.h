@@ -6,8 +6,6 @@
  *
  *  This means that the cpu holds the registers, and emulates the
  *  fetch-decode-execute cycle.
- *
- *  The cpu also handles interrupts.
  */
 #ifndef GBOY_CPU_H
 #define GBOY_CPU_H
@@ -20,12 +18,6 @@
 #define FLAG_N 0x40
 #define FLAG_H 0x20
 #define FLAG_C 0x10
-
-#define INT_INPUT   0x10
-#define INT_SERIAL  0x08
-#define INT_TIMER   0x04
-#define INT_LCDC    0x02
-#define INT_VBLANK  0x01
 
 struct cpu {
     union {
@@ -62,15 +54,12 @@ struct cpu {
     int running;
     int stop;
     int halt;
-    int ime;
-
-    uint8_t reg_if;     /* 0xFF0F */
-    uint8_t reg_ie;     /* 0xFFFF */
 
     struct mmu *mmu;
+    struct interrupts *interrupts;
 };
 
-void        cpu_init(struct cpu *cpu, struct mmu *mmu);
+void        cpu_init(struct cpu *cpu, struct mmu *mmu, struct interrupts *interrupts);
 void        cpu_cleanup(struct cpu *cpu);
 int         cpu_step(struct cpu *cpu);
 uint8_t     cpu_flag(struct cpu *cpu, uint8_t flag);

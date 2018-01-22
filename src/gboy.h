@@ -14,6 +14,7 @@
 #define GBOY_GBOY_H
 
 #include "cpu.h"
+#include "interrupt.h"
 #include "mmu.h"
 #include "gpu.h"
 #include "screen.h"
@@ -24,6 +25,7 @@
 struct gboy {
     int debug;
     struct cpu cpu;
+    struct interrupts interrupts;
     struct mmu mmu;
     struct gpu gpu;
     struct screen screen;

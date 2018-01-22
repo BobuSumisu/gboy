@@ -54,13 +54,13 @@ struct gpu {
     enum gpu_mode mode;
     int clock;
 
-    struct cpu *cpu;
+    struct interrupts *interrupts;
     struct screen *screen;
 };
 
-void        gpu_init(struct gpu *gpu, struct cpu *cpu, struct screen *screen);
-void        gpu_cleanup(struct gpu *gpu);
-void        gpu_update(struct gpu *gpu, int cycles);
-void        gpu_debug_tiles(struct gpu *gpu);
+void gpu_init(struct gpu *gpu, struct interrupts *interrupts, struct screen *screen);
+void gpu_cleanup(struct gpu *gpu);
+void gpu_update(struct gpu *gpu, int cycles);
+void gpu_debug_tiles(struct gpu *gpu);
 
 #endif

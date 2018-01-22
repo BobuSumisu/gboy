@@ -25,14 +25,15 @@ struct mmu {
     uint8_t zram[0x7F];         /* 0xFF80 - 0xFFFF =  127 B internal RAM. */
                                 /* 0xFFFF = IE register. */
     struct cpu *cpu;
+    struct interrupts *interrupts;
     struct gpu *gpu;
     struct timer *timer;
     struct input *input;
     struct audio *audio;
 };
 
-void        mmu_init(struct mmu *mmu, struct cpu *cpu, struct gpu *gpu, struct timer *timer,
-                struct input *input, struct audio *audio);
+void        mmu_init(struct mmu *mmu, struct cpu *cpu, struct interrupts *interrupts, struct gpu *gpu,
+                struct timer *timer, struct input *input, struct audio *audio);
 void        mmu_cleanup(struct mmu *mmu);
 uint8_t     mmu_rb(const struct mmu *mmu, const uint16_t addr);
 void        mmu_wb(struct mmu *mmu, const uint16_t addr, const uint8_t b);

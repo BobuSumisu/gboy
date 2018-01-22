@@ -15,10 +15,10 @@ struct timer {
 
     int div_timer;          /* Updates at 1/16 base clock */
 
-    struct cpu *cpu;
+    struct interrupts *interrupts;
 };
 
-void timer_init(struct timer *timer, struct cpu *cpu);
+void timer_init(struct timer *timer, struct interrupts *interrupts);
 void timer_cleanup(struct timer *timer);
 void timer_update(struct timer *timer, int cycles);
 

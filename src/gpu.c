@@ -3,9 +3,9 @@
 #include <string.h>
 #include <assert.h>
 #include "gpu.h"
+#include "interrupt.h"
 #include "bitutil.h"
 #include "screen.h"
-#include "cpu.h"
 
 #define CYCLES_HBLANK   204
 #define CYCLES_VBLANK   4560    /* 10 lines */
@@ -74,7 +74,6 @@ static void gpu_scanline_background(struct gpu *gpu) {
 
     if(win) {
         printf("window not implemented!\n");
-        gpu->cpu->running = 0;
         return;
     }
 
@@ -172,9 +171,9 @@ static void gpu_scanline(struct gpu *gpu) {
 
 /*** Public ***/
 
-void gpu_init(struct gpu *gpu, struct cpu *cpu, struct screen *screen) {
+void gpu_init(struct gpu *gpu, struct interrupts *interrupts, struct screen *screen) {
     memset(gpu, 0, sizeof(struct gpu));
-    gpu->cpu = cpu;
+    gpu->interrupts = interrupts;
     gpu->screen = screen;
     gpu->mode = GPU_MODE_OAM;
 }
@@ -204,7 +203,7 @@ void gpu_update(struct gpu *gpu, int cycles) {
     if(gpu->reg_ly == gpu->reg_lyc) {
         gpu->reg_stat |= STAT_MATCH;
         if(gpu->reg_stat & STAT_INT_MATCH) {
-            gpu->cpu->reg_if |= INT_LCDC;
+            interrupts_trigger(gpu->interrupts, INT_LCDC);
         }
     } else {
         gpu->reg_stat &= ~STAT_MATCH;
@@ -232,7 +231,7 @@ void gpu_update(struct gpu *gpu, int cycles) {
 
                 /* STAT HBLANK interrupt. */
                 if(gpu->reg_stat & STAT_INT_HBLANK) {
-                    gpu->cpu->reg_if |= INT_LCDC;
+                    interrupts_trigger(gpu->interrupts, INT_LCDC);
                 }
             }
             break;
@@ -245,11 +244,11 @@ void gpu_update(struct gpu *gpu, int cycles) {
                     gpu->mode = GPU_MODE_VBLANK;
 
                     /* VBLANK interrupt */
-                    gpu->cpu->reg_if |= INT_VBLANK;
+                    interrupts_trigger(gpu->interrupts, INT_VBLANK);
 
                     /* STAT VBLANK interrupt */
                     if(gpu->reg_stat & STAT_INT_VBLANK) {
-                        gpu->cpu->reg_if |= INT_LCDC;
+                        interrupts_trigger(gpu->interrupts, INT_LCDC);
                     }
                 } else {
                     /* Switch HBLANK -> OAM */
@@ -257,7 +256,7 @@ void gpu_update(struct gpu *gpu, int cycles) {
 
                     /* STAT OAM interrupt */
                     if(gpu->reg_stat & STAT_INT_OAM) {
-                        gpu->cpu->reg_if |= INT_LCDC;
+                        interrupts_trigger(gpu->interrupts, INT_LCDC);
                     }
                 }
             }
@@ -274,7 +273,7 @@ void gpu_update(struct gpu *gpu, int cycles) {
 
                     /* STAT OAM interrupt. */
                     if(gpu->reg_stat & STAT_INT_OAM) {
-                        gpu->cpu->reg_if |= INT_LCDC;
+                        interrupts_trigger(gpu->interrupts, INT_LCDC);
                     }
                 }
             }

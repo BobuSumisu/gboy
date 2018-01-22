@@ -1,6 +1,6 @@
 #include <string.h>
 #include "timer.h"
-#include "cpu.h"
+#include "interrupt.h"
 
 #define TAC_TIMER_ON 0x04
 
@@ -27,10 +27,11 @@ static void timer_check(struct timer *timer) {
         if(timer->clock >= resolution) {
             timer->clock -= resolution;
             timer->reg_tima++;
-            /* If overflow set to modulo. */
+
+            /* If overflow set to modulo and trigger interrupt. */
             if(timer->reg_tima == 0) {
                 timer->reg_tima = timer->reg_tma;
-                timer->cpu->reg_if |= INT_TIMER;
+                interrupts_trigger(timer->interrupts, INT_TIMER);
             }
         }
     }
@@ -38,9 +39,9 @@ static void timer_check(struct timer *timer) {
 
 /*** Public ***/
 
-void timer_init(struct timer *timer, struct cpu *cpu) {
+void timer_init(struct timer *timer, struct interrupts *interrupts) {
     memset(timer, 0, sizeof(struct timer));
-    timer->cpu = cpu;
+    timer->interrupts = interrupts;
 }
 
 void timer_cleanup(struct timer *timer) {

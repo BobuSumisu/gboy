@@ -77,11 +77,12 @@ int gboy_init(struct gboy *gb) {
         return -1;
     }
 
-    cpu_init(&gb->cpu, &gb->mmu);
-    mmu_init(&gb->mmu, &gb->cpu, &gb->gpu, &gb->timer, &gb->input, &gb->audio);
+    cpu_init(&gb->cpu, &gb->mmu, &gb->interrupts);
+    interrupts_init(&gb->interrupts, &gb->cpu);
+    mmu_init(&gb->mmu, &gb->cpu, &gb->interrupts, &gb->gpu, &gb->timer, &gb->input, &gb->audio);
     screen_init(&gb->screen);
-    gpu_init(&gb->gpu, &gb->cpu, &gb->screen);
-    timer_init(&gb->timer, &gb->cpu);
+    gpu_init(&gb->gpu, &gb->interrupts, &gb->screen);
+    timer_init(&gb->timer, &gb->interrupts);
     input_init(&gb->input);
     audio_init(&gb->audio);
 
@@ -101,6 +102,7 @@ int gboy_init(struct gboy *gb) {
 
 void gboy_cleanup(struct gboy *gb) {
     cpu_cleanup(&gb->cpu);
+    interrupts_cleanup(&gb->interrupts);
     mmu_cleanup(&gb->mmu);
     screen_cleanup(&gb->screen);
     gpu_cleanup(&gb->gpu);
@@ -124,11 +126,19 @@ void gboy_run(struct gboy *gb, const char *path) {
         time = SDL_GetTicks();
 
         while(total_cycles < CYCLES_PER_FRAME && gb->cpu.running) {
-            cycles = cpu_step(&gb->cpu);
+            if(gb->cpu.halt) {
+                /* NOP */
+                cycles = 4;
+            } else {
+                cycles = cpu_step(&gb->cpu);
+            }
             total_cycles += cycles;
+
+            interrupts_handle(&gb->interrupts);
             gpu_update(&gb->gpu, cycles);
             timer_update(&gb->timer, cycles);
             audio_update(&gb->audio, cycles);
+
             if(gb->debug) {
                 cpu_debug(&gb->cpu);
                 printf("LCDC: 0x%02X STAT: 0x%02X, LY: 0x%02X\n", gb->gpu.reg_lcdc,

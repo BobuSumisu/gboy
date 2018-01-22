@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "cpu.h"
+#include "interrupt.h"
 #include "mmu.h"
 #include "instr_info.h"
 #include "instr_impl.h"
@@ -21,28 +22,12 @@
 #define DEBUG_STEP(...)
 #endif
 
-/*** Private ***/
-
-static void cpu_int_handler(struct cpu *cpu) {
-    if(cpu->ime && cpu->reg_ie && cpu->reg_if) {
-        for(int i = 0; i < 5; i++) {
-            int flag = (1 << i);
-            if(((cpu->reg_ie & flag) != 0) && ((cpu->reg_if & flag) != 0)) {
-                cpu->ime = 0;
-                cpu->reg_if &= ~flag;
-                cpu_push(cpu, cpu->pc);
-                cpu->pc = (uint16_t)(0x0040 + (i * 0x08));
-                return;
-            }
-        }
-    }
-}
-
 /*** Public ***/
 
-void cpu_init(struct cpu *cpu, struct mmu *mmu) {
+void cpu_init(struct cpu *cpu, struct mmu *mmu, struct interrupts *interrupts) {
     memset(cpu, 0, sizeof(struct cpu));
     cpu->mmu = mmu;
+    cpu->interrupts = interrupts;
 }
 
 void cpu_cleanup(struct cpu *cpu) {
@@ -54,7 +39,6 @@ int cpu_step(struct cpu *cpu) {
     const struct instr_info *info = &INSTR_INFO[opcode];
     instr_impl_fn impl = INSTR_IMPL[opcode];
 
-    /* Might as well check for prefix byte here. */
     if(opcode == 0xCB) {
         opcode = cpu_fb(cpu);
         info = &INSTR_INFO_PREFIX[opcode];
@@ -65,7 +49,6 @@ int cpu_step(struct cpu *cpu) {
     }
 
     int cycles = impl(cpu, info);
-    cpu_int_handler(cpu);
     return cycles;
 }
 
@@ -120,17 +103,17 @@ void cpu_debug(struct cpu *cpu) {
         cpu_flag(cpu, FLAG_N),
         cpu_flag(cpu, FLAG_H),
         cpu_flag(cpu, FLAG_C),
-        (cpu->reg_ie & INT_VBLANK) != 0,
-        (cpu->reg_ie & INT_LCDC) != 0,
-        (cpu->reg_ie & INT_TIMER) != 0,
-        (cpu->reg_ie & INT_SERIAL) != 0,
-        (cpu->reg_ie & INT_INPUT) != 0,
-        (cpu->reg_if & INT_VBLANK) != 0,
-        (cpu->reg_if & INT_LCDC) != 0,
-        (cpu->reg_if & INT_TIMER) != 0,
-        (cpu->reg_if & INT_SERIAL) != 0,
-        (cpu->reg_if & INT_INPUT) != 0);
+        (cpu->interrupts->enabled & INT_VBLANK) != 0,
+        (cpu->interrupts->enabled & INT_LCDC) != 0,
+        (cpu->interrupts->enabled & INT_TIMER) != 0,
+        (cpu->interrupts->enabled & INT_SERIAL) != 0,
+        (cpu->interrupts->enabled & INT_INPUT) != 0,
+        (cpu->interrupts->triggered & INT_VBLANK) != 0,
+        (cpu->interrupts->triggered & INT_LCDC) != 0,
+        (cpu->interrupts->triggered & INT_TIMER) != 0,
+        (cpu->interrupts->triggered & INT_SERIAL) != 0,
+        (cpu->interrupts->triggered & INT_INPUT) != 0);
     printf("+----+----+----+----+----+----+----+----+------+------+-----------------");
     printf("+---------------------+---------------------+\n");
-    printf("IME: %d\n", cpu->ime);
+    printf("IME: %d\n", cpu->interrupts->master);
 }

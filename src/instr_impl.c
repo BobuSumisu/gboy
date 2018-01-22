@@ -1,4 +1,5 @@
 #include "instr_impl.h"
+#include "interrupt.h"
 #include "alu.h"
 #include "mmu.h"
 
@@ -1403,7 +1404,7 @@ static int instr_impl_0xD8(struct cpu *cpu, const struct instr_info *info) {
 static int instr_impl_0xD9(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RETI");
     cpu->pc = cpu_pop(cpu);
-    cpu->ime = 1;
+    cpu->interrupts->master = 1;
     return info->cycles;
 }
 
@@ -1582,7 +1583,7 @@ static int instr_impl_0xF2(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0xF3(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("DI");
-    cpu->ime = 0;
+    cpu->interrupts->master = 0;
     return info->cycles;
 }
 
@@ -1634,7 +1635,7 @@ static int instr_impl_0xFA(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0xFB(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("EI");
-    cpu->ime = 1;
+    cpu->interrupts->master = 1;
     return info->cycles;
 }
 

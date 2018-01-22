@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "mmu.h"
 #include "cpu.h"
+#include "interrupt.h"
 #include "gpu.h"
 #include "timer.h"
 #include "input.h"
@@ -38,10 +39,11 @@ static void mmu_dma_transfer(struct mmu *mmu) {
 
 /*** Public ***/
 
-void mmu_init(struct mmu *mmu, struct cpu *cpu, struct gpu *gpu, struct timer *timer,
-        struct input *input, struct audio *audio) {
+void mmu_init(struct mmu *mmu, struct cpu *cpu, struct interrupts *interrupts, struct gpu *gpu,
+        struct timer *timer, struct input *input, struct audio *audio) {
     memset(mmu, 0, sizeof(struct mmu));
     mmu->cpu = cpu;
+    mmu->interrupts = interrupts;
     mmu->gpu = gpu;
     mmu->timer = timer;
     mmu->input = input;
@@ -80,7 +82,7 @@ uint8_t mmu_rb(const struct mmu *mmu, const uint16_t addr) {
             case 0xFF06: return mmu->timer->reg_tma;
             case 0xFF07: return mmu->timer->reg_tac;
 
-            case 0xFF0F: return mmu->cpu->reg_if;
+            case 0xFF0F: return mmu->interrupts->triggered;
 
             case 0xFF10:
             case 0xFF11:
@@ -130,7 +132,7 @@ uint8_t mmu_rb(const struct mmu *mmu, const uint16_t addr) {
     } else if(addr >= 0xFF80 && addr < 0xFFFF) {
         return mmu->zram[addr & 0x7F];
     } else if(addr == 0xFFFF) {
-        return mmu->cpu->reg_ie;
+        return mmu->interrupts->enabled;
     } else {
         return 0;
     }
@@ -164,9 +166,8 @@ void mmu_wb(struct mmu *mmu, const uint16_t addr, const uint8_t b) {
             case 0xFF05: mmu->timer->reg_tima = b; break;
             case 0xFF06: mmu->timer->reg_tma = b; break;
             case 0xFF07: mmu->timer->reg_tac = b; break;
-            case 0xFF0F: mmu->cpu->reg_if = b; break;
+            case 0xFF0F: mmu->interrupts->triggered = b; break;
 
-            case 0xFF10:
             case 0xFF11:
             case 0xFF12:
             case 0xFF13:
@@ -217,7 +218,7 @@ void mmu_wb(struct mmu *mmu, const uint16_t addr, const uint8_t b) {
     } else if(addr >= 0xFF80 && addr < 0xFFFF) {
         mmu->zram[addr & 0x7F] = b;
     } else if(addr == 0xFFFF) {
-        mmu->cpu->reg_ie = b;
+        mmu->interrupts->enabled = b;
     }
 }
 
