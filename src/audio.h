@@ -29,20 +29,11 @@
 
 #include <inttypes.h>
 #include <SDL2/SDL.h>
+#include "sound.h"
 
-struct sound {
-    uint8_t     duty;
-    float       len;
-    uint16_t    freq;
-    float       clock;
-    float       env_init;
-    int         env_dir;
-    int         env_sweeps;
-    float       env;
-    uint8_t     one_shot;
-    int         out_so1;
-    int         out_so2;
-};
+#define SAMPLES_PER_SEC     48000
+#define CHANNELS            1
+#define AUDIO_BUFSIZ        4096
 
 struct audio {
     uint8_t reg_nr10;       /* 0xFF10 - Sound 1 Sweep */
@@ -75,10 +66,7 @@ struct audio {
 
     SDL_AudioDeviceID dev;
 
-    int clock;
-    int sample;
-
-    float sound1_clock;
+    uint16_t sample;
 
     struct sound sound1;
     struct sound sound2;

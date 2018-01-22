@@ -14,10 +14,10 @@
  *
  */
 
-const int CYCLES_PER_SEC    = 4194304;
-const int FRAMES_PER_SEC    = 60;
-const double MS_PER_FRAME   = 16.67;
-const int CYCLES_PER_FRAME  = 69905;
+const float CYCLES_PER_SEC      = 4194304.0;
+const float FRAMES_PER_SEC      = 60.0f;
+const float MS_PER_FRAME        = (1000.0f / (float)FRAMES_PER_SEC);
+const float CYCLES_PER_FRAME    = (CYCLES_PER_SEC / FRAMES_PER_SEC);
 
 /*** Private ***/
 
@@ -86,7 +86,7 @@ int gboy_init(struct gboy *gb) {
     audio_init(&gb->audio);
 
     /* Skip boot. */
-    if(0) {
+    if(1) {
         gb->cpu.af = 0x01B0;
         gb->cpu.bc = 0x0013;
         gb->cpu.de = 0x00D8;
@@ -120,7 +120,7 @@ void gboy_run(struct gboy *gb, const char *path) {
     total_cycles = 0;
 
     while(gb->cpu.running) {
-        total_cycles %= CYCLES_PER_FRAME;
+        total_cycles %= (int)CYCLES_PER_FRAME;
         time = SDL_GetTicks();
 
         while(total_cycles < CYCLES_PER_FRAME && gb->cpu.running) {

@@ -1,13 +1,15 @@
 #include "instr_impl.h"
 #include "alu.h"
 #include "mmu.h"
-#include "bitutil.h"
 
 #if PRINT_DEBUG == 1
 #define DEBUG_INSTR(...) do { printf(__VA_ARGS__); printf("\n"); } while(0)
 #else
 #define DEBUG_INSTR(...)
 #endif
+
+#define IHL_GET()   mmu_rb(cpu->mmu, cpu->hl)
+#define IHL_SET(v)  mmu_wb(cpu->mmu, cpu->hl, (v))
 
 static int instr_impl_0x00(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("NOP");
@@ -208,9 +210,8 @@ static int instr_impl_0x1E(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0x1F(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RRA");
-    (void)cpu;
-    fprintf(stderr, "unimplemented opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_rr(cpu, cpu->a);
+    cpu->f &= ~FLAG_Z;
     return info->cycles;
 }
 
@@ -233,7 +234,8 @@ static int instr_impl_0x21(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0x22(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("LD (HL+),A");
-    mmu_wb(cpu->mmu, cpu->hl++, cpu->a);
+    IHL_SET(cpu->a);
+    cpu->hl++;
     return info->cycles;
 }
 
@@ -280,15 +282,14 @@ static int instr_impl_0x28(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0x29(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("ADD HL,HL");
-    (void)cpu;
-    fprintf(stderr, "unimplemented opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->hl = alu_add16(cpu, cpu->hl, cpu->hl);
     return info->cycles;
 }
 
 static int instr_impl_0x2A(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("LD A,(HL+)");
-    cpu->a = mmu_rb(cpu->mmu, cpu->hl++);
+    cpu->a = IHL_GET();
+    cpu->hl++;
     return info->cycles;
 }
 
@@ -342,7 +343,8 @@ static int instr_impl_0x31(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0x32(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("LD (HL-),A");
-    mmu_wb(cpu->mmu, cpu->hl--, cpu->a);
+    IHL_SET(cpu->a);
+    cpu->hl--;
     return info->cycles;
 }
 
@@ -354,20 +356,20 @@ static int instr_impl_0x33(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0x34(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("INC (HL)");
-    mmu_wb(cpu->mmu, cpu->hl, alu_inc(cpu, mmu_rb(cpu->mmu, cpu->hl)));
+    IHL_SET(alu_inc(cpu, IHL_GET()));
     return info->cycles;
 }
 
 static int instr_impl_0x35(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("DEC (HL)");
-    mmu_wb(cpu->mmu, cpu->hl, alu_dec(cpu, mmu_rb(cpu->mmu, cpu->hl)));
+    IHL_SET(alu_dec(cpu, IHL_GET()));
     return info->cycles;
 }
 
 static int instr_impl_0x36(struct cpu *cpu, const struct instr_info *info) {
     uint8_t v = cpu_fb(cpu);
     DEBUG_INSTR("LD (HL),0x%02X", v);
-    mmu_wb(cpu->mmu, cpu->hl, v);
+    IHL_SET(v);
     return info->cycles;
 }
 
@@ -395,7 +397,8 @@ static int instr_impl_0x39(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0x3A(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("LD A,(HL-)");
-    cpu->a = mmu_rb(cpu->mmu, cpu->hl--);
+    cpu->a = IHL_GET();
+    cpu->hl--;
     return info->cycles;
 }
 
@@ -468,7 +471,7 @@ static int instr_impl_0x45(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0x46(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("LD B,(HL)");
-    cpu->b = mmu_rb(cpu->mmu, cpu->hl);
+    cpu->b = IHL_GET();
     return info->cycles;
 }
 
@@ -516,7 +519,7 @@ static int instr_impl_0x4D(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0x4E(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("LD C,(HL)");
-    cpu->c = mmu_rb(cpu->mmu, cpu->hl);
+    cpu->c = IHL_GET();
     return info->cycles;
 }
 
@@ -564,7 +567,7 @@ static int instr_impl_0x55(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0x56(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("LD D,(HL)");
-    cpu->d = mmu_rb(cpu->mmu, cpu->hl);
+    cpu->d = IHL_GET();
     return info->cycles;
 }
 
@@ -612,7 +615,7 @@ static int instr_impl_0x5D(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0x5E(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("LD E,(HL)");
-    cpu->e = mmu_rb(cpu->mmu, cpu->hl);
+    cpu->e = IHL_GET();
     return info->cycles;
 }
 
@@ -660,7 +663,7 @@ static int instr_impl_0x65(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0x66(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("LD H,(HL)");
-    cpu->h = mmu_rb(cpu->mmu, cpu->hl);
+    cpu->h = IHL_GET();
     return info->cycles;
 }
 
@@ -708,7 +711,7 @@ static int instr_impl_0x6D(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0x6E(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("LD L,(HL)");
-    cpu->l = mmu_rb(cpu->mmu, cpu->hl);
+    cpu->l = IHL_GET();
     return info->cycles;
 }
 
@@ -720,37 +723,37 @@ static int instr_impl_0x6F(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0x70(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("LD (HL),B");
-    mmu_wb(cpu->mmu, cpu->hl, cpu->b);
+    IHL_SET(cpu->b);
     return info->cycles;
 }
 
 static int instr_impl_0x71(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("LD (HL),C");
-    mmu_wb(cpu->mmu, cpu->hl, cpu->c);
+    IHL_SET(cpu->c);
     return info->cycles;
 }
 
 static int instr_impl_0x72(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("LD (HL),D");
-    mmu_wb(cpu->mmu, cpu->hl, cpu->d);
+    IHL_SET(cpu->d);
     return info->cycles;
 }
 
 static int instr_impl_0x73(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("LD (HL),E");
-    mmu_wb(cpu->mmu, cpu->hl, cpu->e);
+    IHL_SET(cpu->e);
     return info->cycles;
 }
 
 static int instr_impl_0x74(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("LD (HL),H");
-    mmu_wb(cpu->mmu, cpu->hl, cpu->h);
+    IHL_SET(cpu->h);
     return info->cycles;
 }
 
 static int instr_impl_0x75(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("LD (HL),L");
-    mmu_wb(cpu->mmu, cpu->hl, cpu->l);
+    IHL_SET(cpu->l);
     return info->cycles;
 }
 
@@ -762,7 +765,7 @@ static int instr_impl_0x76(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0x77(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("LD (HL),A");
-    mmu_wb(cpu->mmu, cpu->hl, cpu->a);
+    IHL_SET(cpu->a);
     return info->cycles;
 }
 
@@ -804,7 +807,7 @@ static int instr_impl_0x7D(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0x7E(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("LD A,(HL)");
-    cpu->a = mmu_rb(cpu->mmu, cpu->hl);
+    cpu->a = IHL_GET();
     return info->cycles;
 }
 
@@ -852,7 +855,7 @@ static int instr_impl_0x85(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0x86(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("ADD A,(HL)");
-    cpu->a = alu_add(cpu, cpu->a, mmu_rb(cpu->mmu, cpu->hl));
+    cpu->a = alu_add(cpu, cpu->a, IHL_GET());
     return info->cycles;
 }
 
@@ -900,7 +903,7 @@ static int instr_impl_0x8D(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0x8E(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("ADC A,(HL)");
-    cpu->a = alu_adc(cpu, cpu->a, mmu_rb(cpu->mmu, cpu->hl));
+    cpu->a = alu_adc(cpu, cpu->a, IHL_GET());
     return info->cycles;
 }
 
@@ -948,7 +951,7 @@ static int instr_impl_0x95(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0x96(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SUB (HL)");
-    cpu->a = alu_sub(cpu, cpu->a, mmu_rb(cpu->mmu, cpu->hl));
+    cpu->a = alu_sub(cpu, cpu->a, IHL_GET());
     return info->cycles;
 }
 
@@ -960,65 +963,49 @@ static int instr_impl_0x97(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0x98(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SBC A,B");
-    (void)cpu;
-    fprintf(stderr, "unimplemented opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_sbc(cpu, cpu->a, cpu->b);
     return info->cycles;
 }
 
 static int instr_impl_0x99(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SBC A,C");
-    (void)cpu;
-    fprintf(stderr, "unimplemented opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_sbc(cpu, cpu->a, cpu->c);
     return info->cycles;
 }
 
 static int instr_impl_0x9A(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SBC A,D");
-    (void)cpu;
-    fprintf(stderr, "unimplemented opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_sbc(cpu, cpu->a, cpu->d);
     return info->cycles;
 }
 
 static int instr_impl_0x9B(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SBC A,E");
-    (void)cpu;
-    fprintf(stderr, "unimplemented opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_sbc(cpu, cpu->a, cpu->e);
     return info->cycles;
 }
 
 static int instr_impl_0x9C(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SBC A,H");
-    (void)cpu;
-    fprintf(stderr, "unimplemented opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_sbc(cpu, cpu->a, cpu->h);
     return info->cycles;
 }
 
 static int instr_impl_0x9D(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SBC A,L");
-    (void)cpu;
-    fprintf(stderr, "unimplemented opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_sbc(cpu, cpu->a, cpu->l);
     return info->cycles;
 }
 
 static int instr_impl_0x9E(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SBC A,(HL)");
-    (void)cpu;
-    fprintf(stderr, "unimplemented opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_sbc(cpu, cpu->a, IHL_GET());
     return info->cycles;
 }
 
 static int instr_impl_0x9F(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SBC A,A");
-    (void)cpu;
-    fprintf(stderr, "unimplemented opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_sbc(cpu, cpu->a, cpu->a);
     return info->cycles;
 }
 
@@ -1060,7 +1047,7 @@ static int instr_impl_0xA5(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0xA6(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("AND (HL)");
-    cpu->a = alu_and(cpu, cpu->a, mmu_rb(cpu->mmu, cpu->hl));
+    cpu->a = alu_and(cpu, cpu->a, IHL_GET());
     return info->cycles;
 }
 
@@ -1108,7 +1095,7 @@ static int instr_impl_0xAD(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0xAE(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("XOR (HL)");
-    cpu->a = alu_xor(cpu, cpu->a, mmu_rb(cpu->mmu, cpu->hl));
+    cpu->a = alu_xor(cpu, cpu->a, IHL_GET());
     return info->cycles;
 }
 
@@ -1156,7 +1143,7 @@ static int instr_impl_0xB5(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0xB6(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("OR (HL)");
-    cpu->a = alu_or(cpu, cpu->a, mmu_rb(cpu->mmu, cpu->hl));
+    cpu->a = alu_or(cpu, cpu->a, IHL_GET());
     return info->cycles;
 }
 
@@ -1204,7 +1191,7 @@ static int instr_impl_0xBD(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0xBE(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("CP (HL)");
-    alu_cp(cpu, cpu->a, mmu_rb(cpu->mmu, cpu->hl));
+    alu_cp(cpu, cpu->a, IHL_GET());
     return info->cycles;
 }
 
@@ -1367,18 +1354,20 @@ static int instr_impl_0xD2(struct cpu *cpu, const struct instr_info *info) {
 }
 
 static int instr_impl_0xD3(struct cpu *cpu, const struct instr_info *info) {
-    DEBUG_INSTR("None");
     (void)cpu;
-    fprintf(stderr, "unimplemented opcode: 0x%02X\n", info->opcode);
+    fprintf(stderr, "illegal opcode: 0x%02X\n", info->opcode);
     cpu->running = 0;
     return info->cycles;
 }
 
 static int instr_impl_0xD4(struct cpu *cpu, const struct instr_info *info) {
-    DEBUG_INSTR("CALL NC,a16");
-    (void)cpu;
-    fprintf(stderr, "unimplemented opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    uint16_t v = cpu_fw(cpu);
+    DEBUG_INSTR("CALL NC,0x%04X", v);
+    if(!(cpu->f & FLAG_C)) {
+        cpu_push(cpu, cpu->pc);
+        cpu->pc = v;
+        return info->cond_cycles;
+    }
     return info->cycles;
 }
 
@@ -1404,7 +1393,7 @@ static int instr_impl_0xD7(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0xD8(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RET C");
-    if((cpu->f & FLAG_C) != 0) {
+    if(cpu->f & FLAG_C) {
         cpu->pc = cpu_pop(cpu);
         return info->cond_cycles;
     }
@@ -1421,7 +1410,7 @@ static int instr_impl_0xD9(struct cpu *cpu, const struct instr_info *info) {
 static int instr_impl_0xDA(struct cpu *cpu, const struct instr_info *info) {
     uint16_t v = cpu_fw(cpu);
     DEBUG_INSTR("JP C,0x%04X", v);
-    if((cpu->f & FLAG_C) != 0) {
+    if(cpu->f & FLAG_C) {
         cpu->pc = v;
         return info->cycles;
     }
@@ -1438,7 +1427,8 @@ static int instr_impl_0xDB(struct cpu *cpu, const struct instr_info *info) {
 static int instr_impl_0xDC(struct cpu *cpu, const struct instr_info *info) {
     uint16_t v = cpu_fw(cpu);
     DEBUG_INSTR("CALL C,0x%04X", v);
-    if((cpu->f & FLAG_C) != 0) {
+    if(cpu->f & FLAG_C) {
+        cpu_push(cpu, cpu->pc);
         cpu->pc = v;
         return info->cond_cycles;
     }
@@ -1540,9 +1530,7 @@ static int instr_impl_0xEA(struct cpu *cpu, const struct instr_info *info) {
 }
 
 static int instr_impl_0xEB(struct cpu *cpu, const struct instr_info *info) {
-    DEBUG_INSTR("None");
-    (void)cpu;
-    fprintf(stderr, "unimplemented opcode: 0x%02X\n", info->opcode);
+    fprintf(stderr, "illegal opcode: 0x%02X\n", info->opcode);
     cpu->running = 0;
     return info->cycles;
 }
@@ -1599,7 +1587,6 @@ static int instr_impl_0xF3(struct cpu *cpu, const struct instr_info *info) {
 }
 
 static int instr_impl_0xF4(struct cpu *cpu, const struct instr_info *info) {
-    (void)cpu;
     fprintf(stderr, "illegal opcode: 0x%02X\n", info->opcode);
     cpu->running = 0;
     return info->cycles;
@@ -1652,14 +1639,12 @@ static int instr_impl_0xFB(struct cpu *cpu, const struct instr_info *info) {
 }
 
 static int instr_impl_0xFC(struct cpu *cpu, const struct instr_info *info) {
-    (void)cpu;
     fprintf(stderr, "illegal opcode: 0x%02X\n", info->opcode);
     cpu->running = 0;
     return info->cycles;
 }
 
 static int instr_impl_0xFD(struct cpu *cpu, const struct instr_info *info) {
-    (void)cpu;
     fprintf(stderr, "illegal opcode: 0x%02X\n", info->opcode);
     cpu->running = 0;
     return info->cycles;
@@ -1687,129 +1672,98 @@ static int instr_impl_prefix_0x00(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0x01(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RLC C");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->c = alu_rlc(cpu, cpu->c);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x02(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RLC D");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->d = alu_rlc(cpu, cpu->d);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x03(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RLC E");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->e = alu_rlc(cpu, cpu->e);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x04(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RLC H");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->h = alu_rlc(cpu, cpu->h);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x05(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RLC L");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->l = alu_rlc(cpu, cpu->l);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x06(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RLC (HL)");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    uint8_t v = IHL_GET();
+    mmu_wb(cpu->mmu, cpu->hl, alu_rlc(cpu, v));
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x07(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RLC A");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_rlc(cpu, cpu->a);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x08(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RRC B");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->b = alu_rrc(cpu, cpu->b);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x09(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RRC C");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->c = alu_rrc(cpu, cpu->c);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x0A(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RRC D");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->d = alu_rrc(cpu, cpu->d);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x0B(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RRC E");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->e = alu_rrc(cpu, cpu->e);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x0C(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RRC H");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->h = alu_rrc(cpu, cpu->h);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x0D(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RRC L");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->l = alu_rrc(cpu, cpu->l);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x0E(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RRC (HL)");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    IHL_SET(alu_rrc(cpu, IHL_GET()));
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x0F(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RRC A");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_rrc(cpu, cpu->a);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x10(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RL B");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->b = alu_rl(cpu, cpu->b);
     return info->cycles;
 }
 
@@ -1821,113 +1775,85 @@ static int instr_impl_prefix_0x11(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0x12(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RL D");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->d = alu_rl(cpu, cpu->d);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x13(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RL E");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->e = alu_rl(cpu, cpu->e);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x14(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RL H");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->h = alu_rl(cpu, cpu->h);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x15(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RL L");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->l = alu_rl(cpu, cpu->l);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x16(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RL (HL)");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    IHL_SET(alu_rl(cpu, IHL_GET()));
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x17(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RL A");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_rl(cpu, cpu->a);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x18(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RR B");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->b = alu_rr(cpu, cpu->b);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x19(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RR C");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->c = alu_rr(cpu, cpu->c);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x1A(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RR D");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->d = alu_rr(cpu, cpu->d);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x1B(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RR E");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->e = alu_rr(cpu, cpu->e);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x1C(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RR H");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->h = alu_rr(cpu, cpu->h);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x1D(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RR L");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->l = alu_rr(cpu, cpu->l);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x1E(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RR (HL)");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    IHL_SET(alu_rr(cpu, IHL_GET()));
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x1F(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RR A");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_rr(cpu, cpu->a);
     return info->cycles;
 }
 
@@ -1969,8 +1895,7 @@ static int instr_impl_prefix_0x25(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0x26(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SLA (HL)");
-    uint8_t v = mmu_rb(cpu->mmu, cpu->hl);
-    mmu_wb(cpu->mmu, cpu->hl, alu_sla(cpu, v));
+    IHL_SET(alu_sla(cpu, IHL_GET()));
     return info->cycles;
 }
 
@@ -2018,8 +1943,7 @@ static int instr_impl_prefix_0x2D(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0x2E(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SRA (HL)");
-    uint8_t v = mmu_rb(cpu->mmu, cpu->hl);
-    mmu_wb(cpu->mmu, cpu->hl, alu_sra(cpu, v));
+    IHL_SET(alu_sra(cpu, IHL_GET()));
     return info->cycles;
 }
 
@@ -2067,8 +1991,7 @@ static int instr_impl_prefix_0x35(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0x36(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SWAP (HL)");
-    uint8_t v = mmu_rb(cpu->mmu, cpu->hl);
-    mmu_wb(cpu->mmu, cpu->hl, alu_swap(cpu, v));
+    IHL_SET(alu_swap(cpu, IHL_GET()));
     return info->cycles;
 }
 
@@ -2116,8 +2039,7 @@ static int instr_impl_prefix_0x3D(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0x3E(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SRL (HL)");
-    uint8_t v = mmu_rb(cpu->mmu, cpu->hl);
-    mmu_wb(cpu->mmu, cpu->hl, v);
+    IHL_SET(alu_srl(cpu, IHL_GET()));
     return info->cycles;
 }
 
@@ -2165,7 +2087,7 @@ static int instr_impl_prefix_0x45(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0x46(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("BIT 0,(HL)");
-    alu_bit(cpu, mmu_rb(cpu->mmu, cpu->hl), 0);
+    alu_bit(cpu, IHL_GET(), 0);
     return info->cycles;
 }
 
@@ -2213,7 +2135,7 @@ static int instr_impl_prefix_0x4D(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0x4E(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("BIT 1,(HL)");
-    alu_bit(cpu, mmu_rb(cpu->mmu, cpu->hl), 1);
+    alu_bit(cpu, IHL_GET(), 1);
     return info->cycles;
 }
 
@@ -2261,7 +2183,7 @@ static int instr_impl_prefix_0x55(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0x56(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("BIT 2,(HL)");
-    alu_bit(cpu, mmu_rb(cpu->mmu, cpu->hl), 2);
+    alu_bit(cpu, IHL_GET(), 2);
     return info->cycles;
 }
 
@@ -2309,7 +2231,7 @@ static int instr_impl_prefix_0x5D(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0x5E(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("BIT 3,(HL)");
-    alu_bit(cpu, mmu_rb(cpu->mmu, cpu->hl), 3);
+    alu_bit(cpu, IHL_GET(), 3);
     return info->cycles;
 }
 
@@ -2357,7 +2279,7 @@ static int instr_impl_prefix_0x65(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0x66(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("BIT 4,(HL)");
-    alu_bit(cpu, mmu_rb(cpu->mmu, cpu->hl), 4);
+    alu_bit(cpu, IHL_GET(), 4);
     return info->cycles;
 }
 
@@ -2405,7 +2327,7 @@ static int instr_impl_prefix_0x6D(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0x6E(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("BIT 5,(HL)");
-    alu_bit(cpu, mmu_rb(cpu->mmu, cpu->hl), 5);
+    alu_bit(cpu, IHL_GET(), 5);
     return info->cycles;
 }
 
@@ -2453,7 +2375,7 @@ static int instr_impl_prefix_0x75(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0x76(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("BIT 6,(HL)");
-    alu_bit(cpu, mmu_rb(cpu->mmu, cpu->hl), 6);
+    alu_bit(cpu, IHL_GET(), 6);
     return info->cycles;
 }
 
@@ -2501,7 +2423,7 @@ static int instr_impl_prefix_0x7D(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0x7E(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("BIT 7,(HL)");
-    alu_bit(cpu, mmu_rb(cpu->mmu, cpu->hl), 7);
+    alu_bit(cpu, IHL_GET(), 7);
     return info->cycles;
 }
 
@@ -2513,419 +2435,337 @@ static int instr_impl_prefix_0x7F(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0x80(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 0,B");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->b = alu_res(cpu, cpu->b, 0);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x81(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 0,C");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->c = alu_res(cpu, cpu->c, 0);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x82(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 0,D");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->d = alu_res(cpu, cpu->d, 0);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x83(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 0,E");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->e = alu_res(cpu, cpu->e, 0);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x84(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 0,H");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->h = alu_res(cpu, cpu->h, 0);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x85(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 0,L");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->l = alu_res(cpu, cpu->l, 0);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x86(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 0,(HL)");
-    uint8_t v = mmu_rb(cpu->mmu, cpu->hl);
-    BIT_RESET(v, 0);
-    mmu_wb(cpu->mmu, cpu->hl, v);
+    IHL_SET(alu_res(cpu, IHL_GET(), 0));
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x87(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 0,A");
-    BIT_RESET(cpu->a, 0);
+    cpu->a = alu_res(cpu, cpu->a, 0);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x88(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 1,B");
-    BIT_RESET(cpu->b, 1);
+    cpu->b = alu_res(cpu, cpu->b, 1);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x89(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 1,C");
-    BIT_RESET(cpu->c, 1);
+    cpu->c = alu_res(cpu, cpu->c, 1);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x8A(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 1,D");
-    BIT_RESET(cpu->d, 1);
+    cpu->d = alu_res(cpu, cpu->d, 1);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x8B(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 1,E");
-    BIT_RESET(cpu->e, 1);
+    cpu->e = alu_res(cpu, cpu->e, 1);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x8C(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 1,H");
-    BIT_RESET(cpu->h, 1);
+    cpu->h = alu_res(cpu, cpu->h, 1);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x8D(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 1,L");
-    BIT_RESET(cpu->l, 1);
+    cpu->l = alu_res(cpu, cpu->l, 1);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x8E(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 1,(HL)");
-    uint8_t v = mmu_rb(cpu->mmu, cpu->hl);
-    BIT_RESET(v, 1);
-    mmu_wb(cpu->mmu, cpu->hl, v);
+    IHL_SET(alu_res(cpu, IHL_GET(), 1));
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x8F(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 1,A");
-    BIT_RESET(cpu->a, 1);
+    cpu->a = alu_res(cpu, cpu->a, 1);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x90(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 2,B");
-    BIT_RESET(cpu->b, 2);
+    cpu->b = alu_res(cpu, cpu->b, 2);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x91(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 2,C");
-    BIT_RESET(cpu->c, 2);
+    cpu->c = alu_res(cpu, cpu->c, 2);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x92(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 2,D");
-    BIT_RESET(cpu->d, 2);
+    cpu->d = alu_res(cpu, cpu->d, 2);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x93(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 2,E");
-    BIT_RESET(cpu->e, 2);
+    cpu->e = alu_res(cpu, cpu->e, 2);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x94(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 2,H");
-    BIT_RESET(cpu->h, 2);
+    cpu->h = alu_res(cpu, cpu->h, 2);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x95(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 2,L");
-    BIT_RESET(cpu->l, 2);
+    cpu->l = alu_res(cpu, cpu->l, 2);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x96(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 2,(HL)");
-    uint8_t v = mmu_rb(cpu->mmu, cpu->hl);
-    BIT_RESET(v, 2);
-    mmu_wb(cpu->mmu, cpu->hl, v);
+    IHL_SET(alu_res(cpu, IHL_GET(), 2));
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x97(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 2,A");
-    BIT_RESET(cpu->a, 2);
+    cpu->a = alu_res(cpu, cpu->a, 2);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x98(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 3,B");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->b = alu_res(cpu, cpu->b, 3);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x99(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 3,C");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->c = alu_res(cpu, cpu->c, 3);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x9A(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 3,D");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->d = alu_res(cpu, cpu->d, 3);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x9B(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 3,E");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->e = alu_res(cpu, cpu->e, 3);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x9C(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 3,H");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->h = alu_res(cpu, cpu->h, 3);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x9D(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 3,L");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->l = alu_res(cpu, cpu->l, 3);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x9E(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 3,(HL)");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    IHL_SET(alu_res(cpu, IHL_GET(), 3));
     return info->cycles;
 }
 
 static int instr_impl_prefix_0x9F(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 3,A");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_res(cpu, cpu->a, 3);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xA0(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 4,B");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->b = alu_res(cpu, cpu->b, 4);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xA1(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 4,C");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->c = alu_res(cpu, cpu->c, 4);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xA2(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 4,D");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->d = alu_res(cpu, cpu->d, 4);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xA3(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 4,E");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->e = alu_res(cpu, cpu->e, 4);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xA4(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 4,H");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->h = alu_res(cpu, cpu->h, 4);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xA5(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 4,L");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->l = alu_res(cpu, cpu->l, 4);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xA6(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 4,(HL)");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    IHL_SET(alu_res(cpu, IHL_GET(), 4));
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xA7(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 4,A");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_res(cpu, cpu->a, 4);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xA8(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 5,B");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->b = alu_res(cpu, cpu->b, 5);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xA9(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 5,C");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->c = alu_res(cpu, cpu->c, 5);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xAA(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 5,D");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->d = alu_res(cpu, cpu->d, 5);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xAB(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 5,E");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->e = alu_res(cpu, cpu->e, 5);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xAC(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 5,H");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->h = alu_res(cpu, cpu->h, 5);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xAD(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 5,L");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->l = alu_res(cpu, cpu->l, 5);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xAE(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 5,(HL)");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    IHL_SET(alu_res(cpu, IHL_GET(), 5));
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xAF(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 5,A");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_res(cpu, cpu->a, 5);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xB0(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 6,B");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->b = alu_res(cpu, cpu->b, 6);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xB1(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 6,C");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->c = alu_res(cpu, cpu->c, 6);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xB2(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 6,D");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->d = alu_res(cpu, cpu->d, 6);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xB3(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 6,E");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->e = alu_res(cpu, cpu->e, 6);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xB4(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 6,H");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->h = alu_res(cpu, cpu->h, 6);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xB5(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 6,L");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->l = alu_res(cpu, cpu->l, 6);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xB6(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 6,(HL)");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    IHL_SET(alu_res(cpu, IHL_GET(), 6));
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xB7(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 6,A");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_res(cpu, cpu->a, 6);
     return info->cycles;
 }
 
@@ -2967,7 +2807,7 @@ static int instr_impl_prefix_0xBD(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0xBE(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("RES 7,(HL)");
-    uint8_t v = mmu_rb(cpu->mmu, cpu->hl);
+    uint8_t v = IHL_GET();
     mmu_wb(cpu->mmu, cpu->hl, alu_res(cpu, v, 7));
     return info->cycles;
 }
@@ -3016,9 +2856,7 @@ static int instr_impl_prefix_0xC5(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0xC6(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 0,(HL)");
-    uint8_t v = mmu_rb(cpu->mmu, cpu->hl);
-    alu_set(cpu, v, 0);
-    mmu_wb(cpu->mmu, cpu->hl, v);
+    IHL_SET(alu_set(cpu, IHL_GET(), 0));
     return info->cycles;
 }
 
@@ -3066,7 +2904,7 @@ static int instr_impl_prefix_0xCD(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0xCE(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 1,(HL)");
-    uint8_t v = mmu_rb(cpu->mmu, cpu->hl);
+    uint8_t v = IHL_GET();
     mmu_wb(cpu->mmu, cpu->hl, alu_set(cpu, v, 1));
     return info->cycles;
 }
@@ -3115,7 +2953,7 @@ static int instr_impl_prefix_0xD5(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0xD6(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 2,(HL)");
-    uint8_t v = mmu_rb(cpu->mmu, cpu->hl);
+    uint8_t v = IHL_GET();
     mmu_wb(cpu->mmu, cpu->hl, alu_set(cpu, v, 2));
     return info->cycles;
 }
@@ -3164,7 +3002,7 @@ static int instr_impl_prefix_0xDD(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0xDE(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 3,(HL)");
-    uint8_t v = mmu_rb(cpu->mmu, cpu->hl);
+    uint8_t v = IHL_GET();
     mmu_wb(cpu->mmu, cpu->hl, alu_set(cpu, v, 3));
     return info->cycles;
 }
@@ -3213,7 +3051,7 @@ static int instr_impl_prefix_0xE5(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0xE6(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 4,(HL)");
-    uint8_t v = mmu_rb(cpu->mmu, cpu->hl);
+    uint8_t v = IHL_GET();
     mmu_wb(cpu->mmu, cpu->hl, alu_set(cpu, v, 4));
     return info->cycles;
 }
@@ -3226,129 +3064,97 @@ static int instr_impl_prefix_0xE7(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0xE8(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 5,B");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->b = alu_set(cpu, cpu->b, 5);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xE9(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 5,C");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->c = alu_set(cpu, cpu->c, 5);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xEA(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 5,D");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->d = alu_set(cpu, cpu->d, 5);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xEB(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 5,E");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->e = alu_set(cpu, cpu->e, 5);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xEC(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 5,H");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->h = alu_set(cpu, cpu->h, 5);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xED(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 5,L");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->l = alu_set(cpu, cpu->l, 5);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xEE(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 5,(HL)");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    IHL_SET(alu_set(cpu, IHL_GET(), 5));
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xEF(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 5,A");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_set(cpu, cpu->a, 5);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xF0(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 6,B");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->b = alu_set(cpu, cpu->b, 6);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xF1(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 6,C");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->c = alu_set(cpu, cpu->c, 6);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xF2(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 6,D");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->d = alu_set(cpu, cpu->d, 6);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xF3(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 6,E");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->e = alu_set(cpu, cpu->e, 6);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xF4(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 6,H");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->h = alu_set(cpu, cpu->h, 6);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xF5(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 6,L");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->l = alu_set(cpu, cpu->l, 6);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xF6(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 6,(HL)");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    IHL_SET(alu_set(cpu, IHL_GET(), 6));
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xF7(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 6,A");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_set(cpu, cpu->a, 6);
     return info->cycles;
 }
 
@@ -3390,7 +3196,7 @@ static int instr_impl_prefix_0xFD(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0xFE(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 7,(HL)");
-    uint8_t v = mmu_rb(cpu->mmu, cpu->hl);
+    uint8_t v = IHL_GET();
     mmu_wb(cpu->mmu, cpu->hl, alu_set(cpu, v, 7));
     return info->cycles;
 }
