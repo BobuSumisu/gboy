@@ -5,6 +5,7 @@
 #include "cpu.h"
 #include "gpu.h"
 #include "timer.h"
+#include "input.h"
 
 /*** Private ***/
 
@@ -36,11 +37,12 @@ static void mmu_dma_transfer(struct mmu *mmu) {
 
 /*** Public ***/
 
-void mmu_init(struct mmu *mmu, struct cpu *cpu, struct gpu *gpu, struct timer *timer) {
+void mmu_init(struct mmu *mmu, struct cpu *cpu, struct gpu *gpu, struct timer *timer, struct input *input) {
     memset(mmu, 0, sizeof(struct mmu));
     mmu->cpu = cpu;
     mmu->gpu = gpu;
     mmu->timer = timer;
+    mmu->input = input;
 }
 
 void mmu_cleanup(struct mmu *mmu) {
@@ -68,7 +70,7 @@ uint8_t mmu_rb(const struct mmu *mmu, const uint16_t addr) {
         return 0;
     } else if(addr >= 0xFF00 && addr < 0xFF80) {
         switch(addr) {
-            case 0xFF00: return 0x0F;
+            case 0xFF00: return input_rb(mmu->input);
             case 0xFF04: return mmu->timer->reg_div;
             case 0xFF05: return mmu->timer->reg_tima;
             case 0xFF06: return mmu->timer->reg_tma;
@@ -122,6 +124,7 @@ void mmu_wb(struct mmu *mmu, const uint16_t addr, const uint8_t b) {
         /* unusable */
     } else if(addr >= 0xFF00 && addr < 0xFF80) {
         switch(addr) {
+            case 0xFF00: input_wb(mmu->input, b); break;
             case 0xFF04: mmu->timer->reg_div = 0; break;
             case 0xFF05: mmu->timer->reg_tima = b; break;
             case 0xFF06: mmu->timer->reg_tma = b; break;

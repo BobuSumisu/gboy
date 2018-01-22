@@ -2,16 +2,69 @@
 #include <SDL2/SDL.h>
 #include <time.h>
 #include "gboy.h"
-#include "cpu.h"
-#include "mmu.h"
-#include "gpu.h"
-#include "screen.h"
 
-#define CYCLES_PER_SEC      4194304
-#define FRAMES_PER_SEC      60
-#define CYCLES_PER_FRAME    (CYCLES_PER_SEC / FRAMES_PER_SEC)
+/* TODO: move a lot of this into cpu. */
+
+/*
+ *  Timing
+ *  ======
+ *
+ *  60 FPS = 0.01667s/frame = 16.67 ms/frame
+ *  Game Boy run at 4194304 Hz = ~69905 cycles/frame (t-cycles)
+ *
+ */
+
+const int CYCLES_PER_SEC    = 4194304;
+const int FRAMES_PER_SEC    = 60;
+const double MS_PER_FRAME   = 16.67;
+const int CYCLES_PER_FRAME  = 69905;
 
 /*** Private ***/
+
+static void gboy_handle_sdl_events(struct gboy *gb) {
+    SDL_Event evt;
+    while(SDL_PollEvent(&evt)) {
+        switch(evt.type) {
+            case SDL_QUIT:
+                gb->cpu.running = 0;
+                break;
+            case SDL_KEYDOWN:
+                switch(evt.key.keysym.sym) {
+                    case SDLK_ESCAPE:
+                    case SDLK_q:
+                        gb->cpu.running = 0;
+                        break;
+                    case SDLK_d:
+                        gb->debug = 1;
+                        break;
+                    case SDLK_p:
+                        cpu_debug(&gb->cpu);
+                        break;
+                    case SDLK_RIGHT: input_keydown(&gb->input, KEY_RIGHT); break;
+                    case SDLK_LEFT: input_keydown(&gb->input, KEY_LEFT); break;
+                    case SDLK_UP: input_keydown(&gb->input, KEY_UP); break;
+                    case SDLK_DOWN: input_keydown(&gb->input, KEY_DOWN); break;
+                    case SDLK_z: input_keydown(&gb->input, KEY_A); break;
+                    case SDLK_c: input_keydown(&gb->input, KEY_B); break;
+                    case SDLK_SPACE: input_keydown(&gb->input, KEY_SELECT); break;
+                    case SDLK_RETURN: input_keydown(&gb->input, KEY_START); break;
+                }
+                break;
+            case SDL_KEYUP:
+                switch(evt.key.keysym.sym) {
+                    case SDLK_RIGHT: input_keyup(&gb->input, KEY_RIGHT); break;
+                    case SDLK_LEFT: input_keyup(&gb->input, KEY_LEFT); break;
+                    case SDLK_UP: input_keyup(&gb->input, KEY_UP); break;
+                    case SDLK_DOWN: input_keyup(&gb->input, KEY_DOWN); break;
+                    case SDLK_z: input_keyup(&gb->input, KEY_A); break;
+                    case SDLK_c: input_keyup(&gb->input, KEY_B); break;
+                    case SDLK_SPACE: input_keyup(&gb->input, KEY_SELECT); break;
+                    case SDLK_RETURN: input_keyup(&gb->input, KEY_START); break;
+                }
+                break;
+        }
+    }
+}
 
 /*** Public ***/
 
@@ -25,10 +78,11 @@ int gboy_init(struct gboy *gb) {
     }
 
     cpu_init(&gb->cpu, &gb->mmu);
-    mmu_init(&gb->mmu, &gb->cpu, &gb->gpu, &gb->timer);
+    mmu_init(&gb->mmu, &gb->cpu, &gb->gpu, &gb->timer, &gb->input);
     screen_init(&gb->screen);
     gpu_init(&gb->gpu, &gb->cpu, &gb->screen);
     timer_init(&gb->timer, &gb->cpu);
+    input_init(&gb->input);
 
     /* Skip boot. */
     gb->cpu.af = 0x01B0;
@@ -66,12 +120,15 @@ void gboy_cleanup(struct gboy *gb) {
 void gboy_run(struct gboy *gb, const char *path) {
     mmu_load_rom(&gb->mmu, path);
     int total_cycles, cycles;
-    SDL_Event evt;
+    uint32_t time;
 
     gb->cpu.running = 1;
 
+    total_cycles = 0;
+
     while(gb->cpu.running) {
-        total_cycles = 0;
+        total_cycles %= CYCLES_PER_FRAME;
+        time = SDL_GetTicks();
 
         while(total_cycles < CYCLES_PER_FRAME && gb->cpu.running) {
             cycles = cpu_step(&gb->cpu);
@@ -89,28 +146,12 @@ void gboy_run(struct gboy *gb, const char *path) {
         }
 
         screen_update(&gb->screen);
+        gboy_handle_sdl_events(gb);
 
-        while(SDL_PollEvent(&evt)) {
-            switch(evt.type) {
-                case SDL_QUIT:
-                    return;
-                case SDL_KEYDOWN:
-                    switch(evt.key.keysym.sym) {
-                        case SDLK_ESCAPE:
-                        case SDLK_q:
-                            return;
-                        case SDLK_d:
-                            gb->debug = 1;
-                            break;
-                        case SDLK_p:
-                            cpu_debug(&gb->cpu);
-                            break;
-                    }
-                    break;
-            }
+        time = SDL_GetTicks() - time;
+        if(time < MS_PER_FRAME) {
+            SDL_Delay((uint32_t)(MS_PER_FRAME - time));
         }
-
-        SDL_Delay(10);
     }
 
     // getchar();

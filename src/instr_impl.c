@@ -930,41 +930,31 @@ static int instr_impl_0x92(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0x93(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SUB E");
-    (void)cpu;
-    fprintf(stderr, "unimplemented opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_sub(cpu, cpu->a, cpu->e);
     return info->cycles;
 }
 
 static int instr_impl_0x94(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SUB H");
-    (void)cpu;
-    fprintf(stderr, "unimplemented opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_sub(cpu, cpu->a, cpu->h);
     return info->cycles;
 }
 
 static int instr_impl_0x95(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SUB L");
-    (void)cpu;
-    fprintf(stderr, "unimplemented opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_sub(cpu, cpu->a, cpu->l);
     return info->cycles;
 }
 
 static int instr_impl_0x96(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SUB (HL)");
-    (void)cpu;
-    fprintf(stderr, "unimplemented opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_sub(cpu, cpu->a, mmu_rb(cpu->mmu, cpu->hl));
     return info->cycles;
 }
 
 static int instr_impl_0x97(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SUB A");
-    (void)cpu;
-    fprintf(stderr, "unimplemented opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_sub(cpu, cpu->a, cpu->a);
     return info->cycles;
 }
 
@@ -2990,129 +2980,100 @@ static int instr_impl_prefix_0xBF(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0xC0(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 0,B");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->b = alu_set(cpu, cpu->b, 0);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xC1(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 0,C");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->c = alu_set(cpu, cpu->c, 0);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xC2(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 0,D");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->d = alu_set(cpu, cpu->d, 0);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xC3(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 0,E");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->e = alu_set(cpu, cpu->e, 0);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xC4(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 0,H");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->h = alu_set(cpu, cpu->h, 0);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xC5(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 0,L");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->l = alu_set(cpu, cpu->l, 0);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xC6(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 0,(HL)");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    uint8_t v = mmu_rb(cpu->mmu, cpu->hl);
+    alu_set(cpu, v, 0);
+    mmu_wb(cpu->mmu, cpu->hl, v);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xC7(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 0,A");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_set(cpu, cpu->a, 0);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xC8(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 1,B");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->b = alu_set(cpu, cpu->b, 1);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xC9(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 1,C");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->c = alu_set(cpu, cpu->c, 1);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xCA(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 1,D");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->d = alu_set(cpu, cpu->d, 1);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xCB(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 1,E");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->e = alu_set(cpu, cpu->e, 1);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xCC(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 1,H");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->h = alu_set(cpu, cpu->h, 1);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xCD(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 1,L");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->l = alu_set(cpu, cpu->l, 1);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xCE(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 1,(HL)");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    uint8_t v = mmu_rb(cpu->mmu, cpu->hl);
+    mmu_wb(cpu->mmu, cpu->hl, alu_set(cpu, v, 1));
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xCF(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 1,A");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_set(cpu, cpu->a, 1);
     return info->cycles;
 }
 
@@ -3167,129 +3128,99 @@ static int instr_impl_prefix_0xD7(struct cpu *cpu, const struct instr_info *info
 
 static int instr_impl_prefix_0xD8(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 3,B");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->b = alu_set(cpu, cpu->b, 3);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xD9(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 3,C");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->c = alu_set(cpu, cpu->c, 3);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xDA(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 3,D");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->d = alu_set(cpu, cpu->d, 3);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xDB(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 3,E");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->e = alu_set(cpu, cpu->e, 3);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xDC(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 3,H");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->h = alu_set(cpu, cpu->h, 3);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xDD(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 3,L");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->l = alu_set(cpu, cpu->l, 3);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xDE(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 3,(HL)");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    uint8_t v = mmu_rb(cpu->mmu, cpu->hl);
+    mmu_wb(cpu->mmu, cpu->hl, alu_set(cpu, v, 3));
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xDF(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 3,A");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_set(cpu, cpu->a, 3);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xE0(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 4,B");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->b = alu_set(cpu, cpu->b, 4);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xE1(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 4,C");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->c = alu_set(cpu, cpu->c, 4);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xE2(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 4,D");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->d = alu_set(cpu, cpu->d, 4);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xE3(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 4,E");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->e = alu_set(cpu, cpu->e, 4);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xE4(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 4,H");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->h = alu_set(cpu, cpu->h, 4);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xE5(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 4,L");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->l = alu_set(cpu, cpu->l, 4);
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xE6(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 4,(HL)");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    uint8_t v = mmu_rb(cpu->mmu, cpu->hl);
+    mmu_wb(cpu->mmu, cpu->hl, alu_set(cpu, v, 4));
     return info->cycles;
 }
 
 static int instr_impl_prefix_0xE7(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("SET 4,A");
-    (void)cpu;
-    fprintf(stderr, "unimplemented prefix opcode: 0x%02X\n", info->opcode);
-    cpu->running = 0;
+    cpu->a = alu_set(cpu, cpu->a, 4);
     return info->cycles;
 }
 

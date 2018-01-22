@@ -1,6 +1,6 @@
 /*
- *  gboy
- *  ====
+ *  gboy.h
+ *  ======
  *
  *  The gboy object is the main interface and glue of the application.
  *
@@ -18,6 +18,7 @@
 #include "gpu.h"
 #include "screen.h"
 #include "timer.h"
+#include "input.h"
 
 struct gboy {
     int debug;
@@ -26,6 +27,7 @@ struct gboy {
     struct gpu gpu;
     struct screen screen;
     struct timer timer;
+    struct input input;
 };
 
 int     gboy_init(struct gboy *gboy);
