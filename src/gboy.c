@@ -2,6 +2,7 @@
 #include <SDL2/SDL.h>
 #include <time.h>
 #include "gboy.h"
+#include "cartridge.h"
 
 /* TODO: move a lot of this into cpu. */
 
@@ -113,6 +114,13 @@ void gboy_cleanup(struct gboy *gb) {
 }
 
 void gboy_run(struct gboy *gb, const char *path) {
+
+    struct cartridge cartridge;
+    if(cartridge_open(&cartridge, path) != 0) {
+        fprintf(stderr, "failed to open cartridge: %s\n", path);
+        return;
+    }
+
     mmu_load_rom(&gb->mmu, path);
     int total_cycles, cycles;
     uint32_t time;

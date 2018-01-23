@@ -8,9 +8,9 @@ LIBS	= -lm -lSDL2
 SOURCES	:= $(wildcard src/*.c)
 OBJECTS	:= $(patsubst %.c,%.o,$(SOURCES))
 
-ROM_TETRIS 	= ./roms/tetris_rev_a.gb
+ROM_TETRIS 	= ./roms/tetris.gb
 ROM_DRMARIO = ./roms/dr_mario.gb
-ROM_INSTRS	= ./roms/cpu_instrs/cpu_instrs.gb
+ROM_INSTRS	= ./test_roms/blargg/cpu_instrs/cpu_instrs.gb
 
 all: $(TARGET)
 

@@ -105,18 +105,30 @@ uint8_t alu_dec(struct cpu *cpu, const uint8_t a) {
 }
 
 uint8_t alu_daa(struct cpu *cpu, const uint8_t a) {
+    /* TODO this kiiiinda works but fails gblargg's tests. */
     uint8_t b = 0;
-    if(cpu_flag(cpu, FLAG_H) || (a & 0x0F) > 0x09) {
-        b += 0x06;
+
+    if(!(cpu->f & FLAG_N)) {
+        if((cpu->f & FLAG_H) || (a & 0x0F) > 0x09) {
+            b += 0x06;
+        }
+        if((cpu->f & FLAG_C) || (a >> 4) > 0x09) {
+            b += 0x60;
+        }
+    } else {
+        if((cpu->f & FLAG_H) || (a & 0x0F) > 0x06) {
+            b -= 0x06;
+        }
+        if((cpu->f & FLAG_C) || (a >> 4) > 0x06) {
+            b -= 0x60;
+        }
     }
-    if(cpu_flag(cpu, FLAG_C) || (a >> 4) > 0x09) {
-        b += 0x60;
-    }
-    uint8_t r = a + b;
-    cpu_set_flag(cpu, FLAG_Z, r == 0);
+
+    uint16_t r = a + b;
+    cpu_set_flag(cpu, FLAG_Z, (uint8_t)r == 0);
     cpu_set_flag(cpu, FLAG_H, 0);
-    cpu_set_flag(cpu, FLAG_C, (uint16_t)(a + b) > 0xFF);
-    return r;
+    cpu_set_flag(cpu, FLAG_C, r > 0xFF);
+    return (uint8_t)r;
 }
 
 uint8_t alu_cpl(struct cpu *cpu, const uint8_t a) {

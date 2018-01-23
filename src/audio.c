@@ -28,7 +28,7 @@ void sdl_audio_callback(void *user, uint8_t *stream, int len) {
             out = mix(out, sound_generate(&audio->sound2, sample));
         }
 
-        fstream[i] = out;
+        fstream[i] = out * 0.01f;
     }
 }
 

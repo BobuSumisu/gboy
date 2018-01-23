@@ -1571,7 +1571,7 @@ static int instr_impl_0xF0(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0xF1(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("POP AF");
-    cpu->af = cpu_pop(cpu);
+    cpu->af = cpu_pop(cpu) & 0xFFF0; /* Lowest 4 bit in F unused. */
     return info->cycles;
 }
 
@@ -1595,7 +1595,7 @@ static int instr_impl_0xF4(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0xF5(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("PUSH AF");
-    cpu_push(cpu, cpu->af);
+    cpu_push(cpu, cpu->af & 0xFFF0); /* Lowest 4 bits in F is unused. */
     return info->cycles;
 }
 
