@@ -1512,8 +1512,8 @@ static int instr_impl_0xE7(struct cpu *cpu, const struct instr_info *info) {
 
 static int instr_impl_0xE8(struct cpu *cpu, const struct instr_info *info) {
     int8_t v = (int8_t)cpu_fb(cpu);
-    DEBUG_INSTR("ADD SP,0x%04X", v);
-    cpu->sp = (uint16_t)(cpu->sp + v);
+    DEBUG_INSTR("ADD SP,0x%02X", v);
+    cpu->sp = alu_add_u16_i8(cpu, cpu->sp, v);
     return info->cycles;
 }
 

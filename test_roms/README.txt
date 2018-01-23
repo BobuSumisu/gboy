@@ -15,17 +15,17 @@ cgb_sound/rom_singles/12-wave.gb                                    FAILED
 
 # CPU Instructions
 cpu_instrs/cpu_instrs.gb                                            FAILED
-cpu_instrs/individual/01-special.gb                                 FAILED
+cpu_instrs/individual/01-special.gb                                 OK
 cpu_instrs/individual/02-interrupts.gb                              OK
-cpu_instrs/individual/03-op sp,hl.gb                                FAILED
-cpu_instrs/individual/04-op r,imm.gb                                FAILED
+cpu_instrs/individual/03-op sp,hl.gb                                OK
+cpu_instrs/individual/04-op r,imm.gb                                OK
 cpu_instrs/individual/05-op rp.gb                                   OK
 cpu_instrs/individual/06-ld r,r.gb                                  OK
 cpu_instrs/individual/07-jr,jp,call,ret,rst.gb                      OK
 cpu_instrs/individual/08-misc instrs.gb                             OK
-cpu_instrs/individual/09-op r,r.gb                                  FAILED
+cpu_instrs/individual/09-op r,r.gb                                  OK
 cpu_instrs/individual/10-bit ops.gb                                 OK
-cpu_instrs/individual/11-op a,(hl).gb                               FAILED
+cpu_instrs/individual/11-op a,(hl).gb                               OK
 
 # DMG Sound
 dmg_sound/dmg_sound.gb                                              FAILED
