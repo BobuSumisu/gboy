@@ -2,17 +2,61 @@
 
 ## Blargg
 
-### cpu_instrs
-
-- cpu_instrs.gb
-- 01-special.gb
-- 02-interrupts.gb
-- 03-op sp,hl.gb
-- 04-op r,imm.gb
-- 05-op rp.gb
-- 06-ld r,r.gb
-- 07-jr,jp,call,ret,rst.gb
-- 08-misc instrs.gb
-- 09-op r,r.gb
-- 10-bit ops.gb
-- 11-op a,(hl).gb
+    mem_timing/individual/02-write_timing.gb
+    mem_timing/individual/03-modify_timing.gb
+    mem_timing/individual/01-read_timing.gb
+    mem_timing/mem_timing.gb
+    instr_timing/instr_timing.gb
+    halt_bug.gb
+    cgb_sound/cgb_sound.gb
+    cgb_sound/rom_singles/12-wave.gb
+    cgb_sound/rom_singles/05-sweep details.gb
+    cgb_sound/rom_singles/07-len sweep period sync.gb
+    cgb_sound/rom_singles/10-wave trigger while on.gb
+    cgb_sound/rom_singles/03-trigger.gb
+    cgb_sound/rom_singles/09-wave read while on.gb
+    cgb_sound/rom_singles/04-sweep.gb
+    cgb_sound/rom_singles/08-len ctr during power.gb
+    cgb_sound/rom_singles/06-overflow on trigger.gb
+    cgb_sound/rom_singles/01-registers.gb
+    cgb_sound/rom_singles/11-regs after power.gb
+    cgb_sound/rom_singles/02-len ctr.gb
+    mem_timing-2/mem_timing.gb
+    mem_timing-2/rom_singles/02-write_timing.gb
+    mem_timing-2/rom_singles/03-modify_timing.gb
+    mem_timing-2/rom_singles/01-read_timing.gb
+    oam_bug/oam_bug.gb
+    oam_bug/rom_singles/2-causes.gb
+    oam_bug/rom_singles/6-timing_no_bug.gb
+    oam_bug/rom_singles/7-timing_effect.gb
+    oam_bug/rom_singles/4-scanline_timing.gb
+    oam_bug/rom_singles/5-timing_bug.gb
+    oam_bug/rom_singles/1-lcd_sync.gb
+    oam_bug/rom_singles/8-instr_effect.gb
+    oam_bug/rom_singles/3-non_causes.gb
+    dmg_sound/dmg_sound.gb
+    dmg_sound/rom_singles/05-sweep details.gb
+    dmg_sound/rom_singles/07-len sweep period sync.gb
+    dmg_sound/rom_singles/10-wave trigger while on.gb
+    dmg_sound/rom_singles/12-wave write while on.gb
+    dmg_sound/rom_singles/03-trigger.gb
+    dmg_sound/rom_singles/09-wave read while on.gb
+    dmg_sound/rom_singles/04-sweep.gb
+    dmg_sound/rom_singles/08-len ctr during power.gb
+    dmg_sound/rom_singles/06-overflow on trigger.gb
+    dmg_sound/rom_singles/01-registers.gb
+    dmg_sound/rom_singles/11-regs after power.gb
+    dmg_sound/rom_singles/02-len ctr.gb
+    cpu_instrs/cpu_instrs.gb
+    cpu_instrs/individual/08-misc instrs.gb
+    cpu_instrs/individual/01-special.gb
+    cpu_instrs/individual/04-op r,imm.gb
+    cpu_instrs/individual/05-op rp.gb
+    cpu_instrs/individual/03-op sp,hl.gb
+    cpu_instrs/individual/07-jr,jp,call,ret,rst.gb
+    cpu_instrs/individual/11-op a,(hl).gb
+    cpu_instrs/individual/02-interrupts.gb
+    cpu_instrs/individual/09-op r,r.gb
+    cpu_instrs/individual/10-bit ops.gb
+    cpu_instrs/individual/06-ld r,r.gb
+    interrupt_time/interrupt_time.gb
