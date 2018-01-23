@@ -127,7 +127,7 @@ uint8_t mmu_rb(const struct mmu *mmu, const uint16_t addr) {
             case 0xFF4B: return mmu->gpu->reg_wx;
             case 0xFF50: return mmu->reg_boot;
             default:
-                return mmu->ports[addr & 0x7F];
+                return mmu->ports[addr & 0x7F] & 0x01;
         }
     } else if(addr >= 0xFF80 && addr < 0xFFFF) {
         return mmu->zram[addr & 0x7F];
@@ -210,7 +210,7 @@ void mmu_wb(struct mmu *mmu, const uint16_t addr, const uint8_t b) {
             case 0xFF49: mmu->gpu->reg_obp1 = b; break;
             case 0xFF4A: mmu->gpu->reg_wy = b; break;
             case 0xFF4B: mmu->gpu->reg_wx = b; break;
-            case 0xFF50: mmu->reg_boot = b; break;
+            case 0xFF50: mmu->reg_boot = 1; break; /* Can only go from 0 to 1. */
             default:
                 mmu->ports[addr & 0x7F] = b;
                 break;
