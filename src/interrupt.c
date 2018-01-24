@@ -44,11 +44,11 @@ void interrupt_controller_handle(struct interrupt_controller *ic) {
 }
 
 uint8_t interrupt_controller_io_if(const struct interrupt_controller *ic) {
-    return ic->triggered;
+    return 0xE0 | ic->triggered;
 }
 
 uint8_t interrupt_controller_io_ie(const struct interrupt_controller *ic) {
-    return ic->enabled;
+    return 0xE0 | ic->enabled;
 }
 
 void interrupt_controller_io_set_if(struct interrupt_controller *ic, const uint8_t v) {

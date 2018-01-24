@@ -47,7 +47,7 @@ uint16_t cpu_step(struct cpu *cpu) {
 
     if(opcode == 0xCB) {
         opcode = cpu_fb(cpu);
-        cycles += 4;
+        cycles += info->cycles;
         info = &INSTR_INFO_PREFIX[opcode];
         impl = INSTR_IMPL_PREFIX[opcode];
         DEBUG_STEP(2);

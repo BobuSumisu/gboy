@@ -4,8 +4,8 @@
 
 void input_init(struct input *input) {
     input->sel = 0x30;
-    input->col1 = 0x0F;
-    input->col2 = 0x0F;
+    input->col1 = 0xCF;
+    input->col2 = 0xCF;
 }
 
 void input_cleanup(struct input *input) {
@@ -17,7 +17,7 @@ uint8_t input_io_p1(const struct input *input) {
         case 0x10: return input->col2;
         case 0x20: return input->col1;
         case 0x00:
-        default: return 0xFF;
+        default: return 0xCF;
     }
 }
 
@@ -27,15 +27,15 @@ void input_io_set_p1(struct input *input, const uint8_t v) {
 
 void input_keydown(struct input *input, enum key key) {
     switch(key) {
-        case KEY_RIGHT:     input->col1 &= 0x0E; break;
-        case KEY_LEFT:      input->col1 &= 0x0D; break;
-        case KEY_UP:        input->col1 &= 0x0B; break;
-        case KEY_DOWN:      input->col1 &= 0x07; break;
+        case KEY_RIGHT:     input->col1 &= 0xCE; break;
+        case KEY_LEFT:      input->col1 &= 0xCD; break;
+        case KEY_UP:        input->col1 &= 0xCB; break;
+        case KEY_DOWN:      input->col1 &= 0xC7; break;
 
-        case KEY_A:         input->col2 &= 0x0E; break;
-        case KEY_B:         input->col2 &= 0x0D; break;
-        case KEY_SELECT:    input->col2 &= 0x0B; break;
-        case KEY_START:     input->col2 &= 0x07; break;
+        case KEY_A:         input->col2 &= 0xCE; break;
+        case KEY_B:         input->col2 &= 0xCD; break;
+        case KEY_SELECT:    input->col2 &= 0xCB; break;
+        case KEY_START:     input->col2 &= 0xC7; break;
     }
 }
 
