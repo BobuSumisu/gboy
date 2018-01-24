@@ -1222,7 +1222,7 @@ static int instr_impl_0xC2(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("JP NZ,0x%04X", v);
     if(!cpu_flag(cpu, FLAG_Z)) {
         cpu->pc = v;
-        return info->cycles;
+        return info->cond_cycles;
     }
     return info->cycles;
 }
@@ -1285,7 +1285,7 @@ static int instr_impl_0xCA(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("JP Z,0x%04X", v);
     if((cpu->f & FLAG_Z) != 0) {
         cpu->pc = v;
-        return info->cycles;
+        return info->cond_cycles;
     }
     return info->cycles;
 }
@@ -1413,7 +1413,7 @@ static int instr_impl_0xDA(struct cpu *cpu, const struct instr_info *info) {
     DEBUG_INSTR("JP C,0x%04X", v);
     if(cpu->f & FLAG_C) {
         cpu->pc = v;
-        return info->cycles;
+        return info->cond_cycles;
     }
     return info->cycles;
 }

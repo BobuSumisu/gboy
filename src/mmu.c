@@ -165,7 +165,7 @@ void mmu_wb(struct mmu *mmu, const uint16_t addr, const uint8_t b) {
             case 0xFF04: mmu->timer->reg_div = 0; break;
             case 0xFF05: mmu->timer->reg_tima = b; break;
             case 0xFF06: mmu->timer->reg_tma = b; break;
-            case 0xFF07: mmu->timer->reg_tac = b; break;
+            case 0xFF07: mmu->timer->reg_tac = b & 0x07; break;
             case 0xFF0F: mmu->interrupts->triggered = b; break;
 
             case 0xFF11:
@@ -199,7 +199,7 @@ void mmu_wb(struct mmu *mmu, const uint16_t addr, const uint8_t b) {
                 break;
 
             case 0xFF40: mmu->gpu->reg_lcdc = b; break;
-            case 0xFF41: mmu->gpu->reg_stat = (b & 0xF8); break;
+            case 0xFF41: mmu->gpu->reg_stat = (b & 0x78); break;
             case 0xFF42: mmu->gpu->reg_scy = b; break;
             case 0xFF43: mmu->gpu->reg_scx = b; break;
             case 0xFF44: mmu->gpu->reg_ly = 0; break;
@@ -218,7 +218,7 @@ void mmu_wb(struct mmu *mmu, const uint16_t addr, const uint8_t b) {
     } else if(addr >= 0xFF80 && addr < 0xFFFF) {
         mmu->zram[addr & 0x7F] = b;
     } else if(addr == 0xFFFF) {
-        mmu->interrupts->enabled = b;
+        mmu->interrupts->enabled = b & 0x1F;
     }
 }
 

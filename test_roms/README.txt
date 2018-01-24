@@ -14,7 +14,7 @@ cgb_sound/rom_singles/11-regs after power.gb                        FAILED
 cgb_sound/rom_singles/12-wave.gb                                    FAILED
 
 # CPU Instructions
-cpu_instrs/cpu_instrs.gb                                            FAILED
+cpu_instrs/cpu_instrs.gb                                            OK (But loops?)
 cpu_instrs/individual/01-special.gb                                 OK
 cpu_instrs/individual/02-interrupts.gb                              OK
 cpu_instrs/individual/03-op sp,hl.gb                                OK

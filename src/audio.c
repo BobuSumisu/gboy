@@ -85,6 +85,11 @@ uint8_t audio_rb(struct audio *audio, const uint16_t addr) {
         case 0xFF1D: return audio->reg_nr33;
         case 0xFF1E: return audio->reg_nr34;
 
+        case 0xFF20: return audio->reg_nr41;
+        case 0xFF21: return audio->reg_nr42;
+        case 0xFF22: return audio->reg_nr43;
+        case 0xFF23: return audio->reg_nr44;
+
         case 0xFF24: return audio->reg_nr50;
         case 0xFF25: return audio->reg_nr51;
         case 0xFF26: return audio->reg_nr52;
@@ -93,9 +98,15 @@ uint8_t audio_rb(struct audio *audio, const uint16_t addr) {
 }
 
 void audio_wb(struct audio *audio, const uint16_t addr, const uint8_t b) {
+
+    /* Ignore writes to registers when sound is off. */
+    if((audio->reg_nr52 & 0x80) == 0 && addr != 0xFF26) {
+        return;
+    }
+
     switch(addr) {
         case 0xFF10:
-            audio->reg_nr10 = b;
+            audio->reg_nr10 = b & 0x7F;
             sound_set_sweep(&audio->sound1, b);
             break;
         case 0xFF11:
@@ -111,7 +122,7 @@ void audio_wb(struct audio *audio, const uint16_t addr, const uint8_t b) {
             sound_set_lo(&audio->sound1, b);
             break;
         case 0xFF14:
-            audio->reg_nr14 = b;
+            audio->reg_nr14 = b & 0xC7;
             sound_set_hi(&audio->sound1, b);
             break;
 
@@ -128,15 +139,20 @@ void audio_wb(struct audio *audio, const uint16_t addr, const uint8_t b) {
             sound_set_lo(&audio->sound2, b);
             break;
         case 0xFF19:
-            audio->reg_nr24 = b;
+            audio->reg_nr24 = b & 0xC7;
             sound_set_hi(&audio->sound2, b);
             break;
 
-        case 0xFF1A: audio->reg_nr30 = b; break;
+        case 0xFF1A: audio->reg_nr30 = b & 0x80; break;
         case 0xFF1B: audio->reg_nr31 = b; break;
-        case 0xFF1C: audio->reg_nr32 = b; break;
+        case 0xFF1C: audio->reg_nr32 = b & 0x40; break;
         case 0xFF1D: audio->reg_nr33 = b; break;
-        case 0xFF1E: audio->reg_nr34 = b; break;
+        case 0xFF1E: audio->reg_nr34 = b & 0xC7; break;
+
+        case 0xFF20: audio->reg_nr41 = b & 0x3F; break;
+        case 0xFF21: audio->reg_nr42 = b; break;
+        case 0xFF22: audio->reg_nr43 = b; break;
+        case 0xFF23: audio->reg_nr44 = b & 0xC0; break;
 
         case 0xFF24:
             audio->reg_nr50 = b;
@@ -149,7 +165,7 @@ void audio_wb(struct audio *audio, const uint16_t addr, const uint8_t b) {
             audio->sound2.out_so2 = (b & 0x20);
             break;
         case 0xFF26:
-            audio->reg_nr52 = b;
+            audio->reg_nr52 = b & 0x8F;
             break;
     }
 }

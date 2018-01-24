@@ -14,7 +14,7 @@ void interrupts_cleanup(struct interrupts *interrupts) {
 }
 
 void interrupts_trigger(struct interrupts *interrupts, const enum interrupt inter) {
-    interrupts->triggered |= inter;
+    interrupts->triggered |= (inter & 0x1F);
 }
 
 void interrupts_handle(struct interrupts *interrupts) {

@@ -2,12 +2,10 @@
 #include "timer.h"
 #include "interrupt.h"
 
-#define TAC_TIMER_ON 0x04
-
 /*** Private ***/
 
 static void timer_check(struct timer *timer) {
-    if(timer->reg_tac & TAC_TIMER_ON) {
+    if(timer->reg_tac & 0x04) {
         int resolution = 1;
         switch(timer->reg_tac & 0x03) {
             case 0:
@@ -24,7 +22,7 @@ static void timer_check(struct timer *timer) {
                 break;
         }
 
-        if(timer->clock >= resolution) {
+        while(timer->clock >= resolution) {
             timer->clock -= resolution;
             timer->reg_tima++;
 
@@ -61,11 +59,10 @@ void timer_update(struct timer *timer, int cycles) {
 
             /* div updates 1/16 of base clock. */
             if(timer->div_timer == 16) {
-                timer->reg_div++;
                 timer->div_timer = 0;
+                timer->reg_div++;
             }
         }
     }
-
     timer_check(timer);
 }

@@ -39,8 +39,11 @@ int cpu_step(struct cpu *cpu) {
     const struct instr_info *info = &INSTR_INFO[opcode];
     instr_impl_fn impl = INSTR_IMPL[opcode];
 
+    int cycles = 0;
+
     if(opcode == 0xCB) {
         opcode = cpu_fb(cpu);
+        cycles += 4;
         info = &INSTR_INFO_PREFIX[opcode];
         impl = INSTR_IMPL_PREFIX[opcode];
         DEBUG_STEP(2);
@@ -48,7 +51,7 @@ int cpu_step(struct cpu *cpu) {
         DEBUG_STEP(1);
     }
 
-    int cycles = impl(cpu, info);
+    cycles += impl(cpu, info);
     return cycles;
 }
 
