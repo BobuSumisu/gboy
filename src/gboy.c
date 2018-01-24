@@ -96,6 +96,13 @@ int gboy_init(struct gboy *gb) {
         gb->cpu.pc = 0x0100;
         gb->cpu.sp = 0xFFFE;
         gb->mmu.reg_boot = 1;
+
+        gpu_io_set_lcdc(&gb->gpu, 0x91);
+        gpu_io_set_bgp(&gb->gpu, 0xFC);
+        gpu_io_set_obp0(&gb->gpu, 0xFF);
+        gpu_io_set_obp1(&gb->gpu, 0xFF);
+
+        mmu_wb(&gb->mmu, 0xFF02, 0x7E);
     }
 
     return 0;
