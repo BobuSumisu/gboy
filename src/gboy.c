@@ -78,14 +78,14 @@ int gboy_init(struct gboy *gb) {
         return -1;
     }
 
-    cpu_init(&gb->cpu, &gb->mmu, &gb->interrupts);
-    interrupts_init(&gb->interrupts, &gb->cpu);
-    mmu_init(&gb->mmu, &gb->cpu, &gb->interrupts, &gb->gpu, &gb->timer, &gb->input, &gb->audio);
+    cpu_init(&gb->cpu, &gb->mmu, &gb->ic);
+    interrupt_controller_init(&gb->ic, &gb->cpu);
+    mmu_init(&gb->mmu, &gb->cpu, &gb->ic, &gb->gpu, &gb->timer, &gb->input, &gb->apu);
     screen_init(&gb->screen);
-    gpu_init(&gb->gpu, &gb->interrupts, &gb->screen);
-    timer_init(&gb->timer, &gb->interrupts);
+    gpu_init(&gb->gpu, &gb->ic, &gb->screen);
+    timer_init(&gb->timer, &gb->ic);
     input_init(&gb->input);
-    audio_init(&gb->audio);
+    apu_init(&gb->apu);
 
     /* Skip boot. */
     if(1) {
@@ -103,13 +103,13 @@ int gboy_init(struct gboy *gb) {
 
 void gboy_cleanup(struct gboy *gb) {
     cpu_cleanup(&gb->cpu);
-    interrupts_cleanup(&gb->interrupts);
+    interrupt_controller_cleanup(&gb->ic);
     mmu_cleanup(&gb->mmu);
     screen_cleanup(&gb->screen);
     gpu_cleanup(&gb->gpu);
     timer_cleanup(&gb->timer);
     input_cleanup(&gb->input);
-    audio_cleanup(&gb->audio);
+    apu_cleanup(&gb->apu);
     SDL_Quit();
 }
 
@@ -122,47 +122,42 @@ void gboy_run(struct gboy *gb, const char *path) {
     }
 
     mmu_load_rom(&gb->mmu, path);
-    int total_cycles, cycles;
-    uint32_t time;
+
+    uint32_t time = SDL_GetTicks();
+    uint16_t cycles = 0;
+    uint64_t total_cycles = 0;
 
     gb->cpu.running = 1;
 
-    total_cycles = 0;
-
     while(gb->cpu.running) {
-        total_cycles %= (int)CYCLES_PER_FRAME;
-        time = SDL_GetTicks();
+        cycles = cpu_step(&gb->cpu);
+        total_cycles += cycles;
 
-        while(total_cycles < CYCLES_PER_FRAME && gb->cpu.running) {
-            if(gb->cpu.halt) {
-                /* NOP */
-                cycles = 4;
-            } else {
-                cycles = cpu_step(&gb->cpu);
-            }
-            total_cycles += cycles;
+        interrupt_controller_handle(&gb->ic);
+        timer_update(&gb->timer, cycles);
+        gpu_update(&gb->gpu, cycles);
+        apu_update(&gb->apu, cycles);
 
-            interrupts_handle(&gb->interrupts);
-            gpu_update(&gb->gpu, cycles);
-            timer_update(&gb->timer, cycles);
-            audio_update(&gb->audio, cycles);
-
-            if(gb->debug) {
-                cpu_debug(&gb->cpu);
-                printf("LCDC: 0x%02X STAT: 0x%02X, LY: 0x%02X\n", gb->gpu.reg_lcdc,
-                    gb->gpu.reg_stat, gb->gpu.reg_ly);
-                if(getchar() == -1) {
-                    gb->debug = 0;
-                }
+        if(gb->debug) {
+            cpu_debug(&gb->cpu);
+            printf("LCDC: 0x%02X STAT: 0x%02X, LY: 0x%02X\n", gb->gpu.reg_lcdc,
+                gb->gpu.reg_stat, gb->gpu.reg_ly);
+            if(getchar() == -1) {
+                gb->debug = 0;
             }
         }
 
-        screen_update(&gb->screen);
-        gboy_handle_sdl_events(gb);
+        /* Update screen if a frame has passed. */
+        if(total_cycles > CYCLES_PER_FRAME) {
+            total_cycles %= (int)CYCLES_PER_FRAME;
+            screen_update(&gb->screen);
+            gboy_handle_sdl_events(gb);
 
-        time = SDL_GetTicks() - time;
-        if(time < MS_PER_FRAME) {
-            SDL_Delay((uint32_t)(MS_PER_FRAME - time));
+            time = SDL_GetTicks() - time;
+            if(time < MS_PER_FRAME) {
+                SDL_Delay((uint32_t)(MS_PER_FRAME - time));
+            }
+            time = SDL_GetTicks();
         }
     }
 

@@ -61,8 +61,9 @@ struct input {
 
 void    input_init(struct input *input);
 void    input_cleanup(struct input *input);
-uint8_t input_rb(struct input *input);
-void    input_wb(struct input *input, const uint8_t v);
+
+uint8_t input_io_p1(const struct input *input);
+void    input_io_set_p1(struct input *input, const uint8_t v);
 
 void    input_keydown(struct input *input, enum key key);
 void    input_keyup(struct input *input, enum key key);

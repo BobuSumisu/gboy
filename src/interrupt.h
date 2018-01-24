@@ -11,17 +11,22 @@ enum interrupt {
     INT_INPUT   = 0x10,
 };
 
-struct interrupts {
-    uint8_t master;
-    uint8_t enabled;
-    uint8_t triggered;
-
-    struct cpu *cpu;
+struct interrupt_controller {
+    uint8_t     master;
+    uint8_t     enabled;
+    uint8_t     triggered;
+    struct cpu  *cpu;
 };
 
-void interrupts_init(struct interrupts *interrupts, struct cpu *cpu);
-void interrupts_cleanup(struct interrupts *interrupts);
-void interrupts_trigger(struct interrupts *interrupts, const enum interrupt inter);
-void interrupts_handle(struct interrupts *interrupts);
+void        interrupt_controller_init(struct interrupt_controller *ic, struct cpu *cpu);
+void        interrupt_controller_cleanup(struct interrupt_controller *ic);
+void        interrupt_controller_trigger(struct interrupt_controller *ic, const enum interrupt i);
+void        interrupt_controller_handle(struct interrupt_controller *ic);
+
+uint8_t     interrupt_controller_io_if(const struct interrupt_controller *ic);
+uint8_t     interrupt_controller_io_ie(const struct interrupt_controller *ic);
+
+void        interrupt_controller_io_set_if(struct interrupt_controller *ic, const uint8_t v);
+void        interrupt_controller_io_set_ie(struct interrupt_controller *ic, const uint8_t v);
 
 #endif

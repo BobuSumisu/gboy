@@ -171,9 +171,9 @@ static void gpu_scanline(struct gpu *gpu) {
 
 /*** Public ***/
 
-void gpu_init(struct gpu *gpu, struct interrupts *interrupts, struct screen *screen) {
+void gpu_init(struct gpu *gpu, struct interrupt_controller *ic, struct screen *screen) {
     memset(gpu, 0, sizeof(struct gpu));
-    gpu->interrupts = interrupts;
+    gpu->ic = ic;
     gpu->screen = screen;
     gpu->mode = GPU_MODE_OAM;
 }
@@ -203,7 +203,7 @@ void gpu_update(struct gpu *gpu, int cycles) {
     if(gpu->reg_ly == gpu->reg_lyc) {
         gpu->reg_stat |= STAT_MATCH;
         if(gpu->reg_stat & STAT_INT_MATCH) {
-            interrupts_trigger(gpu->interrupts, INT_LCDC);
+            interrupt_controller_trigger(gpu->ic, INT_LCDC);
         }
     } else {
         gpu->reg_stat &= ~STAT_MATCH;
@@ -231,7 +231,7 @@ void gpu_update(struct gpu *gpu, int cycles) {
 
                 /* STAT HBLANK interrupt. */
                 if(gpu->reg_stat & STAT_INT_HBLANK) {
-                    interrupts_trigger(gpu->interrupts, INT_LCDC);
+                    interrupt_controller_trigger(gpu->ic, INT_LCDC);
                 }
             }
             break;
@@ -244,11 +244,11 @@ void gpu_update(struct gpu *gpu, int cycles) {
                     gpu->mode = GPU_MODE_VBLANK;
 
                     /* VBLANK interrupt */
-                    interrupts_trigger(gpu->interrupts, INT_VBLANK);
+                    interrupt_controller_trigger(gpu->ic, INT_VBLANK);
 
                     /* STAT VBLANK interrupt */
                     if(gpu->reg_stat & STAT_INT_VBLANK) {
-                        interrupts_trigger(gpu->interrupts, INT_LCDC);
+                        interrupt_controller_trigger(gpu->ic, INT_LCDC);
                     }
                 } else {
                     /* Switch HBLANK -> OAM */
@@ -256,13 +256,13 @@ void gpu_update(struct gpu *gpu, int cycles) {
 
                     /* STAT OAM interrupt */
                     if(gpu->reg_stat & STAT_INT_OAM) {
-                        interrupts_trigger(gpu->interrupts, INT_LCDC);
+                        interrupt_controller_trigger(gpu->ic, INT_LCDC);
                     }
                 }
             }
             break;
         case GPU_MODE_VBLANK:
-            /* VBLANK is basically 10 lines (OAM+RAM+HBLANK). */
+            /* VBLANK is 10 lines (OAM+RAM+HBLANK). */
             if(gpu->clock >= CYCLES_LINE) {
                 gpu->clock %= CYCLES_LINE;
                 gpu->reg_ly++;
@@ -273,7 +273,7 @@ void gpu_update(struct gpu *gpu, int cycles) {
 
                     /* STAT OAM interrupt. */
                     if(gpu->reg_stat & STAT_INT_OAM) {
-                        interrupts_trigger(gpu->interrupts, INT_LCDC);
+                        interrupt_controller_trigger(gpu->ic, INT_LCDC);
                     }
                 }
             }
@@ -281,81 +281,99 @@ void gpu_update(struct gpu *gpu, int cycles) {
     }
 }
 
-void gpu_debug_tiles(struct gpu *gpu) {
+uint8_t gpu_io_lcdc(const struct gpu *gpu) {
+    return gpu->reg_lcdc;
+}
 
-    printf("Tile Palette Data (BGP 0xFF47):\n");
-    printf("00 => %d\n", (gpu->reg_bgp >> 0) & 0x3);
-    printf("01 => %d\n", (gpu->reg_bgp >> 2) & 0x3);
-    printf("10 => %d\n", (gpu->reg_bgp >> 4) & 0x3);
-    printf("11 => %d\n", (gpu->reg_bgp >> 6) & 0x3);
+uint8_t gpu_io_stat(const struct gpu *gpu) {
+    return gpu->reg_stat;
+}
 
-    printf("Tile Data #1 (0x8000 - 0x9000):\n");
-    for(int i = 0; i < 128; i++) {
-        for(int row = 0; row < 8; row++) {
-            // for(int col = 7; col >= 0; col--) {
-            for(int col = 0; col < 8; col++) {
-                int d = tile_data_pixel((struct tile_data *)&gpu->vram[0], i, row, col);
-                int c = get_color((uint8_t)d, gpu->reg_bgp);
-                switch(c) {
-                    case 0: printf("."); break;
-                    default: printf("O"); break;
-                }
-            }
-            printf("\n");
-        }
-        printf("\n");
-    }
-    printf("-----");
+uint8_t gpu_io_scy(const struct gpu *gpu) {
+    return gpu->reg_scy;
+}
 
-    for(int i = 0; i < 128; i++) {
-        uint16_t tile_addr = (uint16_t)(0x8000 + (i * 16)) & 0x1FFF;
+uint8_t gpu_io_scx(const struct gpu *gpu) {
+    return gpu->reg_scx;
+}
 
-        for(int row = 0; row < 8; row++) {
-            uint8_t data_a = gpu->vram[tile_addr + (row * 2) + 0];
-            uint8_t data_b = gpu->vram[tile_addr + (row * 2) + 1];
+uint8_t gpu_io_ly(const struct gpu *gpu) {
+    return gpu->reg_ly;
+}
 
-            for(int col = 7; col >= 0; col--) {
-                // uint8_t data = (uint8_t)(((data_a >> col) & 1) | (((data_b >> col) & 1)));
-                int data = BIT_GET(data_a, col) | BIT_GET(data_b, col) << 1;
-                uint8_t color = (uint8_t)get_color((uint8_t)data, gpu->reg_bgp);
-                switch(color) {
-                    case 0: printf("."); break;
-                    case 1: printf("*"); break;
-                    case 2: printf("o"); break;
-                    case 3: printf("O"); break;
-                    default: printf("ERROR: data = %d\n", data); return;
-                }
-            }
-            printf("\n");
-        }
-        printf("\n");
-    }
+uint8_t gpu_io_lyc(const struct gpu *gpu) {
+    return gpu->reg_lyc;
+}
 
-    printf("Tile Data #0 (0x8800 - 0x9800):\n");
+uint8_t gpu_io_dma(const struct gpu *gpu) {
+    return gpu->reg_dma;
+}
 
-    printf("Background Tile Map #1 (0x9800):\n");
-    for(uint16_t y = 0; y < 32; y++) {
-        for(uint16_t x = 0; x < 32; x++) {
-            uint8_t tile = gpu->vram[(0x9800 + ((y * 32) + x)) & 0x1FFF];
-            if(tile != 0) {
-                printf("%02X ", tile);
-            } else {
-                printf("-- ");
-            }
-        }
-        printf("\n");
-    }
+uint8_t gpu_io_bgp(const struct gpu *gpu) {
+    return gpu->reg_bgp;
+}
 
-    printf("Background Tile Map #2 (0x9C00):\n");
-    for(uint16_t y = 0; y < 32; y++) {
-        for(uint16_t x = 0; x < 32; x++) {
-            uint8_t tile = gpu->vram[(0x9C00 + ((y * 32) + x)) & 0x1FFF];
-            if(tile != 0) {
-                printf("%02X ", (int8_t)tile);
-            } else {
-                printf("-- ");
-            }
-        }
-        printf("\n");
-    }
+uint8_t gpu_io_obp0(const struct gpu *gpu) {
+    return gpu->reg_obp0;
+}
+
+uint8_t gpu_io_obp1(const struct gpu *gpu) {
+    return gpu->reg_obp1;
+}
+
+uint8_t gpu_io_wy(const struct gpu *gpu) {
+    return gpu->reg_wy;
+}
+
+uint8_t gpu_io_wx(const struct gpu *gpu) {
+    return gpu->reg_wx;
+}
+
+void gpu_io_set_lcdc(struct gpu *gpu, const uint8_t v) {
+    gpu->reg_lcdc = v;
+}
+
+void gpu_io_set_stat(struct gpu *gpu, const uint8_t v) {
+    gpu->reg_stat = v & 0x7C;
+}
+
+void gpu_io_set_scy(struct gpu *gpu, const uint8_t v) {
+    gpu->reg_scy = v;
+}
+
+void gpu_io_set_scx(struct gpu *gpu, const uint8_t v) {
+    gpu->reg_scx = v;
+}
+
+void gpu_io_set_ly(struct gpu *gpu, const uint8_t v) {
+    (void)v;
+    gpu->reg_ly = 0;
+}
+
+void gpu_io_set_lyc(struct gpu *gpu, const uint8_t v) {
+    gpu->reg_lyc = v;
+}
+
+void gpu_io_set_dma(struct gpu *gpu, const uint8_t v) {
+    gpu->reg_dma = v;
+}
+
+void gpu_io_set_bgp(struct gpu *gpu, const uint8_t v) {
+    gpu->reg_bgp = v;
+}
+
+void gpu_io_set_obp0(struct gpu *gpu, const uint8_t v) {
+    gpu->reg_obp0 = v;
+}
+
+void gpu_io_set_obp1(struct gpu *gpu, const uint8_t v) {
+    gpu->reg_obp1 = v;
+}
+
+void gpu_io_set_wy(struct gpu *gpu, const uint8_t v) {
+    gpu->reg_wy = v;
+}
+
+void gpu_io_set_wx(struct gpu *gpu, const uint8_t v) {
+    gpu->reg_wx = v;
 }

@@ -24,22 +24,26 @@
 
 /*** Public ***/
 
-void cpu_init(struct cpu *cpu, struct mmu *mmu, struct interrupts *interrupts) {
+void cpu_init(struct cpu *cpu, struct mmu *mmu, struct interrupt_controller *ic) {
     memset(cpu, 0, sizeof(struct cpu));
     cpu->mmu = mmu;
-    cpu->interrupts = interrupts;
+    cpu->ic = ic;
 }
 
 void cpu_cleanup(struct cpu *cpu) {
     (void)cpu;
 }
 
-int cpu_step(struct cpu *cpu) {
+uint16_t cpu_step(struct cpu *cpu) {
+    if(cpu->halt) {
+        return 4;
+    }
+
     uint8_t opcode = cpu_fb(cpu);
     const struct instr_info *info = &INSTR_INFO[opcode];
     instr_impl_fn impl = INSTR_IMPL[opcode];
 
-    int cycles = 0;
+    uint16_t cycles = 0;
 
     if(opcode == 0xCB) {
         opcode = cpu_fb(cpu);
@@ -106,17 +110,17 @@ void cpu_debug(struct cpu *cpu) {
         cpu_flag(cpu, FLAG_N),
         cpu_flag(cpu, FLAG_H),
         cpu_flag(cpu, FLAG_C),
-        (cpu->interrupts->enabled & INT_VBLANK) != 0,
-        (cpu->interrupts->enabled & INT_LCDC) != 0,
-        (cpu->interrupts->enabled & INT_TIMER) != 0,
-        (cpu->interrupts->enabled & INT_SERIAL) != 0,
-        (cpu->interrupts->enabled & INT_INPUT) != 0,
-        (cpu->interrupts->triggered & INT_VBLANK) != 0,
-        (cpu->interrupts->triggered & INT_LCDC) != 0,
-        (cpu->interrupts->triggered & INT_TIMER) != 0,
-        (cpu->interrupts->triggered & INT_SERIAL) != 0,
-        (cpu->interrupts->triggered & INT_INPUT) != 0);
+        (cpu->ic->enabled & INT_VBLANK) != 0,
+        (cpu->ic->enabled & INT_LCDC) != 0,
+        (cpu->ic->enabled & INT_TIMER) != 0,
+        (cpu->ic->enabled & INT_SERIAL) != 0,
+        (cpu->ic->enabled & INT_INPUT) != 0,
+        (cpu->ic->triggered & INT_VBLANK) != 0,
+        (cpu->ic->triggered & INT_LCDC) != 0,
+        (cpu->ic->triggered & INT_TIMER) != 0,
+        (cpu->ic->triggered & INT_SERIAL) != 0,
+        (cpu->ic->triggered & INT_INPUT) != 0);
     printf("+----+----+----+----+----+----+----+----+------+------+-----------------");
     printf("+---------------------+---------------------+\n");
-    printf("IME: %d\n", cpu->interrupts->master);
+    printf("IME: %d\n", cpu->ic->master);
 }

@@ -12,7 +12,7 @@ void input_cleanup(struct input *input) {
     (void)input;
 }
 
-uint8_t input_rb(struct input *input) {
+uint8_t input_io_p1(const struct input *input) {
     switch(input->sel) {
         case 0x10: return input->col2;
         case 0x20: return input->col1;
@@ -21,7 +21,7 @@ uint8_t input_rb(struct input *input) {
     }
 }
 
-void input_wb(struct input *input, const uint8_t v) {
+void input_io_set_p1(struct input *input, const uint8_t v) {
     input->sel = v & 0x30;
 }
 

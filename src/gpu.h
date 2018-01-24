@@ -54,13 +54,39 @@ struct gpu {
     enum gpu_mode mode;
     int clock;
 
-    struct interrupts *interrupts;
+    struct interrupt_controller *ic;
     struct screen *screen;
 };
 
-void gpu_init(struct gpu *gpu, struct interrupts *interrupts, struct screen *screen);
+void gpu_init(struct gpu *gpu, struct interrupt_controller *ic, struct screen *screen);
 void gpu_cleanup(struct gpu *gpu);
 void gpu_update(struct gpu *gpu, int cycles);
 void gpu_debug_tiles(struct gpu *gpu);
+
+uint8_t gpu_io_lcdc(const struct gpu *gpu);
+uint8_t gpu_io_stat(const struct gpu *gpu);
+uint8_t gpu_io_scy(const struct gpu *gpu);
+uint8_t gpu_io_scx(const struct gpu *gpu);
+uint8_t gpu_io_ly(const struct gpu *gpu);
+uint8_t gpu_io_lyc(const struct gpu *gpu);
+uint8_t gpu_io_dma(const struct gpu *gpu);
+uint8_t gpu_io_bgp(const struct gpu *gpu);
+uint8_t gpu_io_obp0(const struct gpu *gpu);
+uint8_t gpu_io_obp1(const struct gpu *gpu);
+uint8_t gpu_io_wy(const struct gpu *gpu);
+uint8_t gpu_io_wx(const struct gpu *gpu);
+
+void gpu_io_set_lcdc(struct gpu *gpu, const uint8_t v);
+void gpu_io_set_stat(struct gpu *gpu, const uint8_t v);
+void gpu_io_set_scy(struct gpu *gpu, const uint8_t v);
+void gpu_io_set_scx(struct gpu *gpu, const uint8_t v);
+void gpu_io_set_ly(struct gpu *gpu, const uint8_t v);
+void gpu_io_set_lyc(struct gpu *gpu, const uint8_t v);
+void gpu_io_set_dma(struct gpu *gpu, const uint8_t v);
+void gpu_io_set_bgp(struct gpu *gpu, const uint8_t v);
+void gpu_io_set_obp0(struct gpu *gpu, const uint8_t v);
+void gpu_io_set_obp1(struct gpu *gpu, const uint8_t v);
+void gpu_io_set_wy(struct gpu *gpu, const uint8_t v);
+void gpu_io_set_wx(struct gpu *gpu, const uint8_t v);
 
 #endif

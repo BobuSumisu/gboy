@@ -56,19 +56,18 @@ struct cpu {
     int halt;
 
     struct mmu *mmu;
-    struct interrupts *interrupts;
+    struct interrupt_controller *ic;
 };
 
-void        cpu_init(struct cpu *cpu, struct mmu *mmu, struct interrupts *interrupts);
+void        cpu_init(struct cpu *cpu, struct mmu *mmu, struct interrupt_controller *ic);
 void        cpu_cleanup(struct cpu *cpu);
-int         cpu_step(struct cpu *cpu);
+uint16_t    cpu_step(struct cpu *cpu);
 uint8_t     cpu_flag(struct cpu *cpu, uint8_t flag);
 void        cpu_set_flag(struct cpu *cpu, uint8_t flag, int cond);
 uint8_t     cpu_fb(struct cpu *cpu);
 uint16_t    cpu_fw(struct cpu *cpu);
 void        cpu_push(struct cpu *cpu, uint16_t w);
 uint16_t    cpu_pop(struct cpu *cpu);
-
 void        cpu_debug(struct cpu *cpu);
 
 #endif

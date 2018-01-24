@@ -20,18 +20,18 @@
 #include "screen.h"
 #include "timer.h"
 #include "input.h"
-#include "audio.h"
+#include "apu.h"
 
 struct gboy {
-    int debug;
-    struct cpu cpu;
-    struct interrupts interrupts;
-    struct mmu mmu;
-    struct gpu gpu;
-    struct screen screen;
-    struct timer timer;
-    struct input input;
-    struct audio audio;
+    int                         debug;
+    struct cpu                  cpu;
+    struct interrupt_controller ic;
+    struct mmu                  mmu;
+    struct gpu                  gpu;
+    struct screen               screen;
+    struct timer                timer;
+    struct input                input;
+    struct apu                  apu;
 };
 
 int     gboy_init(struct gboy *gboy);

@@ -1,7 +1,7 @@
 #include <math.h>
 #include <stdio.h>
 #include "sound.h"
-#include "audio.h"
+#include "apu.h"
 
 static float freq_to_hz(const uint16_t freq) {
     return (4194304.0f / (32.0f * (2048.0f - freq)));

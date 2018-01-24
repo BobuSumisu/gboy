@@ -7,7 +7,7 @@
 #include "gpu.h"
 #include "timer.h"
 #include "input.h"
-#include "audio.h"
+#include "apu.h"
 
 /*** Private ***/
 
@@ -39,15 +39,15 @@ static void mmu_dma_transfer(struct mmu *mmu) {
 
 /*** Public ***/
 
-void mmu_init(struct mmu *mmu, struct cpu *cpu, struct interrupts *interrupts, struct gpu *gpu,
-        struct timer *timer, struct input *input, struct audio *audio) {
+void mmu_init(struct mmu *mmu, struct cpu *cpu, struct interrupt_controller *ic, struct gpu *gpu,
+        struct timer *timer, struct input *input, struct apu *apu) {
     memset(mmu, 0, sizeof(struct mmu));
     mmu->cpu = cpu;
-    mmu->interrupts = interrupts;
+    mmu->ic = ic;
     mmu->gpu = gpu;
     mmu->timer = timer;
     mmu->input = input;
-    mmu->audio = audio;
+    mmu->apu = apu;
 }
 
 void mmu_cleanup(struct mmu *mmu) {
@@ -75,14 +75,14 @@ uint8_t mmu_rb(const struct mmu *mmu, const uint16_t addr) {
         return 0;
     } else if(addr >= 0xFF00 && addr < 0xFF80) {
         switch(addr) {
-            case 0xFF00: return input_rb(mmu->input);
+            case 0xFF00: return input_io_p1(mmu->input);
 
-            case 0xFF04: return mmu->timer->reg_div;
-            case 0xFF05: return mmu->timer->reg_tima;
-            case 0xFF06: return mmu->timer->reg_tma;
-            case 0xFF07: return mmu->timer->reg_tac;
+            case 0xFF04: return timer_io_div(mmu->timer);
+            case 0xFF05: return timer_io_tima(mmu->timer);
+            case 0xFF06: return timer_io_tma(mmu->timer);
+            case 0xFF07: return timer_io_tac(mmu->timer);
 
-            case 0xFF0F: return mmu->interrupts->triggered;
+            case 0xFF0F: return interrupt_controller_io_if(mmu->ic);
 
             case 0xFF10:
             case 0xFF11:
@@ -105,26 +105,27 @@ uint8_t mmu_rb(const struct mmu *mmu, const uint16_t addr) {
             case 0xFF24:
             case 0xFF25:
             case 0xFF26:
-                return audio_rb(mmu->audio, addr);
+                return apu_rb(mmu->apu, addr);
 
             case 0xFF30: case 0xFF31: case 0xFF32: case 0xFF33:
             case 0xFF34: case 0xFF35: case 0xFF36: case 0xFF37:
             case 0xFF38: case 0xFF39: case 0xFF3A: case 0xFF3B:
             case 0xFF3C: case 0xFF3D: case 0xFF3E: case 0xFF3F:
-                return mmu->audio->wave_ram[addr & 0x0F];
+                return mmu->apu->wave_ram[addr & 0x0F];
 
-            case 0xFF40: return mmu->gpu->reg_lcdc;
-            case 0xFF41: return mmu->gpu->reg_stat;
-            case 0xFF42: return mmu->gpu->reg_scy;
-            case 0xFF43: return mmu->gpu->reg_scx;
-            case 0xFF44: return mmu->gpu->reg_ly;
-            case 0xFF45: return mmu->gpu->reg_lyc;
-            case 0xFF46: return mmu->gpu->reg_dma;
-            case 0xFF47: return mmu->gpu->reg_bgp;
-            case 0xFF48: return mmu->gpu->reg_obp0;
-            case 0xFF49: return mmu->gpu->reg_obp1;
-            case 0xFF4A: return mmu->gpu->reg_wy;
-            case 0xFF4B: return mmu->gpu->reg_wx;
+            case 0xFF40: return gpu_io_lcdc(mmu->gpu);
+            case 0xFF41: return gpu_io_stat(mmu->gpu);
+            case 0xFF42: return gpu_io_scy(mmu->gpu);
+            case 0xFF43: return gpu_io_scx(mmu->gpu);
+            case 0xFF44: return gpu_io_ly(mmu->gpu);
+            case 0xFF45: return gpu_io_lyc(mmu->gpu);
+            case 0xFF46: return gpu_io_dma(mmu->gpu);
+            case 0xFF47: return gpu_io_bgp(mmu->gpu);
+            case 0xFF48: return gpu_io_obp0(mmu->gpu);
+            case 0xFF49: return gpu_io_obp1(mmu->gpu);
+            case 0xFF4A: return gpu_io_wy(mmu->gpu);
+            case 0xFF4B: return gpu_io_wx(mmu->gpu);
+
             case 0xFF50: return mmu->reg_boot;
             default:
                 return mmu->ports[addr & 0x7F] & 0x01;
@@ -132,7 +133,7 @@ uint8_t mmu_rb(const struct mmu *mmu, const uint16_t addr) {
     } else if(addr >= 0xFF80 && addr < 0xFFFF) {
         return mmu->zram[addr & 0x7F];
     } else if(addr == 0xFFFF) {
-        return mmu->interrupts->enabled;
+        return interrupt_controller_io_ie(mmu->ic);
     } else {
         return 0;
     }
@@ -161,12 +162,14 @@ void mmu_wb(struct mmu *mmu, const uint16_t addr, const uint8_t b) {
         /* unusable */
     } else if(addr >= 0xFF00 && addr < 0xFF80) {
         switch(addr) {
-            case 0xFF00: input_wb(mmu->input, b); break;
-            case 0xFF04: mmu->timer->reg_div = 0; break;
-            case 0xFF05: mmu->timer->reg_tima = b; break;
-            case 0xFF06: mmu->timer->reg_tma = b; break;
-            case 0xFF07: mmu->timer->reg_tac = b & 0x07; break;
-            case 0xFF0F: mmu->interrupts->triggered = b; break;
+            case 0xFF00: input_io_set_p1(mmu->input, b); break;
+
+            case 0xFF04: timer_io_set_div(mmu->timer, b); break;
+            case 0xFF05: timer_io_set_tima(mmu->timer, b); break;
+            case 0xFF06: timer_io_set_tma(mmu->timer, b); break;
+            case 0xFF07: timer_io_set_tac(mmu->timer, b); break;
+
+            case 0xFF0F: interrupt_controller_io_set_if(mmu->ic, b); break;
 
             case 0xFF11:
             case 0xFF12:
@@ -188,28 +191,29 @@ void mmu_wb(struct mmu *mmu, const uint16_t addr, const uint8_t b) {
             case 0xFF24:
             case 0xFF25:
             case 0xFF26:
-                audio_wb(mmu->audio, addr, b);
+                apu_wb(mmu->apu, addr, b);
                 break;
 
             case 0xFF30: case 0xFF31: case 0xFF32: case 0xFF33:
             case 0xFF34: case 0xFF35: case 0xFF36: case 0xFF37:
             case 0xFF38: case 0xFF39: case 0xFF3A: case 0xFF3B:
             case 0xFF3C: case 0xFF3D: case 0xFF3E: case 0xFF3F:
-                mmu->audio->wave_ram[addr & 0x0F] = b;
+                mmu->apu->wave_ram[addr & 0x0F] = b;
                 break;
 
-            case 0xFF40: mmu->gpu->reg_lcdc = b; break;
-            case 0xFF41: mmu->gpu->reg_stat = (b & 0x78); break;
-            case 0xFF42: mmu->gpu->reg_scy = b; break;
-            case 0xFF43: mmu->gpu->reg_scx = b; break;
-            case 0xFF44: mmu->gpu->reg_ly = 0; break;
-            case 0xFF45: mmu->gpu->reg_lyc = b; break;
-            case 0xFF46: mmu->gpu->reg_dma = b; mmu_dma_transfer(mmu); break;
-            case 0xFF47: mmu->gpu->reg_bgp = b; break;
-            case 0xFF48: mmu->gpu->reg_obp0 = b; break;
-            case 0xFF49: mmu->gpu->reg_obp1 = b; break;
-            case 0xFF4A: mmu->gpu->reg_wy = b; break;
-            case 0xFF4B: mmu->gpu->reg_wx = b; break;
+            case 0xFF40: gpu_io_set_lcdc(mmu->gpu, b); break;
+            case 0xFF41: gpu_io_set_stat(mmu->gpu, b); break;
+            case 0xFF42: gpu_io_set_scy(mmu->gpu, b); break;
+            case 0xFF43: gpu_io_set_scx(mmu->gpu, b); break;
+            case 0xFF44: gpu_io_set_ly(mmu->gpu, b); break;
+            case 0xFF45: gpu_io_set_lyc(mmu->gpu, b); break;
+            case 0xFF46: gpu_io_set_dma(mmu->gpu, b); mmu_dma_transfer(mmu); break;
+            case 0xFF47: gpu_io_set_bgp(mmu->gpu, b); break;
+            case 0xFF48: gpu_io_set_obp0(mmu->gpu, b); break;
+            case 0xFF49: gpu_io_set_obp1(mmu->gpu, b); break;
+            case 0xFF4A: gpu_io_set_wy(mmu->gpu, b); break;
+            case 0xFF4B: gpu_io_set_wx(mmu->gpu, b); break;
+
             case 0xFF50: mmu->reg_boot = 1; break; /* Can only go from 0 to 1. */
             default:
                 mmu->ports[addr & 0x7F] = b;
@@ -218,7 +222,7 @@ void mmu_wb(struct mmu *mmu, const uint16_t addr, const uint8_t b) {
     } else if(addr >= 0xFF80 && addr < 0xFFFF) {
         mmu->zram[addr & 0x7F] = b;
     } else if(addr == 0xFFFF) {
-        mmu->interrupts->enabled = b & 0x1F;
+        interrupt_controller_io_set_ie(mmu->ic, b);
     }
 }
 
@@ -247,6 +251,5 @@ int mmu_load_rom(struct mmu *mmu, const char *path) {
         mmu->rom0[i] = buf[i];
         mmu->rom1[i] = buf[0x4000 + i];
     }
-
     return 0;
 }
